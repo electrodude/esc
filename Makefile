@@ -8,16 +8,16 @@ LD=g++
 
 all:		main spinc.so
 
-main:		main.o loader.o module.o
+main:		main.o loader.o module.o registry.o
 		${LD} -o $@ $^ ${LDFLAGS}
 
-main.o:		loader.o
+main.hpp:	loader.hpp
 
-loader.o:	module.o
+loader.hpp:	module.hpp
 
-module.o:	symtab.o
+module.hpp:	registry.hpp
 
-%.so:		%.o symtab.o module.o
+%.so:		%.o module.o registry.o
 		${LD} -o $@ $^ ${LDFLAGS} ${SOFLAGS}
 
 %.o:		%.c %.h

@@ -1,6 +1,6 @@
 #include "loader.hpp"
 
-typedef CompilerModule* (*loadfunc_t)();
+typedef CompilerModule* (*loadfunc_t)(CompilerRegistry*);
 
 typedef void (*unloadfunc_t)(CompilerModule*);
 
@@ -14,16 +14,18 @@ void chkerr()
 	}
 }
 
-module::module(const char* path)
+ModuleLoader::ModuleLoader(std::string path, CompilerRegistry* registry)
 {
-	lib = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);	// TODO: find a way to make this not global
+	lib = dlopen(path.c_str(), RTLD_LAZY | RTLD_GLOBAL);	// TODO: find a way to make this not global
 	chkerr();
 	loadfunc_t loadfunc = (loadfunc_t)dlsym(lib, "loadModule");
 	chkerr();
-	mod = loadfunc();
+	mod = loadfunc(registry);
+
+	mod->loader = this;
 }
 
-module::~module()
+ModuleLoader::~ModuleLoader()
 {
 	unloadfunc_t unloadfunc = (unloadfunc_t)dlsym(lib, "unloadModule");
 	chkerr();
@@ -32,7 +34,7 @@ module::~module()
 	chkerr();
 }
 
-CompilerModule* module::getModule() const
+CompilerModule* ModuleLoader::getModule() const
 {
 	return mod;
 }

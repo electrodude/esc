@@ -3,40 +3,46 @@
 class PUBBlock : public Block
 {
 public:
-	PUBBlock(const char* code)
+	PUBBlock(std::string)
 	{
 
 	}
 
-	void foo() {};
+	virtual void foo() {};
+};
+
+class PUBBlockFactory : public BlockFactory
+{
+public:
+	PUBBlockFactory()
+	{
+		printf("PUB block registered!\n");
+	}
+
+	virtual Block* newBlock(std::string code)
+	{
+		return new PUBBlock(code);
+	}
 };
 
 class SpinCompiler : public CompilerModule
 {
 public:
-	SpinCompiler()
+	SpinCompiler(CompilerRegistry& registry) : CompilerModule(registry)
 	{
-
+		printf("Spin compiler module loading!\n");
+		registry(new PUBBlockFactory());
 	}
 
 	~SpinCompiler()
 	{
 
 	}
-
-	virtual Block* newBlock(int id, const char* code)
-	{
-		switch (id)
-		{
-			case 0: return new PUBBlock(code);
-		}
-		return NULL;
-	}
 };
 
-extern "C" CompilerModule* loadModule()
+extern "C" CompilerModule* loadModule(CompilerRegistry& registry)
 {
-	return new SpinCompiler();
+	return new SpinCompiler(registry);
 }
 
 extern "C" void unloadModule(CompilerModule* mod)

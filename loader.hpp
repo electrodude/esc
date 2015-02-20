@@ -13,13 +13,14 @@ typedef HMODULE library;
 #endif
 
 #include "module.hpp"
+#include "registry.hpp"
 
-class module
+class ModuleLoader
 {
 public:
-	module(const char* path);
+	ModuleLoader(std::string path, CompilerRegistry* registry);
 
-	virtual ~module();
+	virtual ~ModuleLoader();
 
 	virtual CompilerModule* getModule() const;
 
