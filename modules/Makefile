@@ -1,24 +1,15 @@
-#CFLAGS=-std=c99 -Og -g -fpermissive -fPIC -rdynamic -I../
-CXXFLAGS=-std=c++11 -Og -g -fpermissive -fPIC -rdynamic -I../
-LDFLAGS=-lm -lpthread -ldl -rdynamic -shared
-CC=gcc
-CXX=g++
-LD=g++
+MODULES=spinc
 
 .PHONY:		all clean modules
 
 all:		modules
 
 clean:		
-		rm -fv *.o *.so
+		rm -vf *.so
+		for module in ${MODULES}; do make -C $$module clean; done
 
-modules:	spinc.so
+modules:	${MODULES}.so
 
-%.so:		%.o ../module.o ../registry.o
-		${LD} -o $@ $^ ${LDFLAGS}
-
-#%.o:		%.c %.h
-#		${CC} ${CFLAGS} -c -o $@ $<
-
-%.o:		%.cpp %.hpp
-		${CXX} ${CXXFLAGS} -c -o $@ $<
+%.so:		
+		make -C $* all $*.so
+		cp $*/$*.so $@
