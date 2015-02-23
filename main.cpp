@@ -26,5 +26,5 @@ CompilerModule* loadModule(std::string path)
 
 int main(int argc, char** argv)
 {
-	CompilerModule* mod = loadModule("./spinc.so");
+	CompilerModule* mod = loadModule("modules/spinc.so");
 }

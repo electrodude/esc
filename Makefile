@@ -1,12 +1,20 @@
-CFLAGS=-std=c99 -Og -g -fpermissive -fPIC -rdynamic
-CXXFLAGS=-std=c++11 -Og -g -fpermissive -fPIC -rdynamic
-LDFLAGS=-lm -lpthread -ldl -rdynamic
-SOFLAGS=-shared
+#CFLAGS=-std=c99 -Og -g -fpermissive -fPIC
+CXXFLAGS=-std=c++11 -Og -g -fpermissive -fPIC
+LDFLAGS=-lm -lpthread -ldl
 CC=gcc
 CXX=g++
 LD=g++
 
-all:		main spinc.so
+.PHONY:		all clean modules
+
+all:		main modules
+
+clean:
+		rm -fv *.o main
+		make -C modules clean
+
+modules:	
+		make -C modules all
 
 main:		main.o loader.o module.o registry.o
 		${LD} -o $@ $^ ${LDFLAGS}
@@ -17,11 +25,8 @@ loader.hpp:	module.hpp
 
 module.hpp:	registry.hpp
 
-%.so:		%.o module.o registry.o
-		${LD} -o $@ $^ ${LDFLAGS} ${SOFLAGS}
-
-%.o:		%.c %.h
-		${CC} ${CFLAGS} -c -o $@ $<
+#%.o:		%.c %.h
+#		${CC} ${CFLAGS} -c -o $@ $<
 
 %.o:		%.cpp %.hpp
 		${CXX} ${CXXFLAGS} -c -o $@ $<
