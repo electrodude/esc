@@ -4,15 +4,18 @@ LDFLAGS=../../module.a -lm -rdynamic -shared
 CC=gcc
 CXX=g++
 LD=g++
+BLOCKS=conblock.o objblock.o varblock.o pubblock.o priblock.o datblock.o
 
 .PHONY:		all clean
+
+.PRECIOUS:	%.o
 
 all:		spinc.so
 
 clean:		
 		rm -vf *.o *.so
 
-%.so:		%.o
+%.so:		%.o ${BLOCKS}
 		@#echo `realpath ../../module.a`
 		${LD} -o $@ $^ ${LDFLAGS}
 

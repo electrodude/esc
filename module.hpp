@@ -14,6 +14,8 @@ public:
 
 	virtual void foo() = 0;
 
+	std::string name;
+
 	Namespace ns;
 };
 

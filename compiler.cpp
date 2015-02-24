@@ -59,7 +59,7 @@ SpinObject::SpinObject(std::string code)
 				start = end+1;
 
 				currBlock = nextBlock;
-				std::cout << "Next block type: " << blockname << '\n';
+				//std::cout << "Next block type: " << blockname << '\n';
 			}
 		}
 

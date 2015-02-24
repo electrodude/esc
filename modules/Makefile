@@ -10,6 +10,8 @@ clean:
 
 modules:	${MODULES}.so
 
-%.so:		
+%.so:		FORCE
 		make -C $* all $*.so
 		cp $*/$*.so $@
+
+FORCE:
