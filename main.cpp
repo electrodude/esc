@@ -1,30 +1,29 @@
 #include <map>
 #include <string>
+#include <iostream>
 
 #include <cstdlib>
 
+#include "registry.hpp"
 #include "loader.hpp"
+
+#include "compiler.hpp"
 
 #include "main.hpp"
 
-
-CompilerRegistry registry;
-
-std::map<std::string, CompilerModule*> modules;
-
-CompilerModule* loadModule(std::string path)
-{
-	char* cpath = realpath(path.c_str(), NULL);
-	path = std::string(cpath);
-	free(cpath);
-	CompilerModule* mod = (new ModuleLoader(path, &registry))->getModule();
-
-	modules[path] = mod;
-
-	return mod;
-}
-
 int main(int argc, char** argv)
 {
-	CompilerModule* mod = loadModule("./modules/spinc.so");
+	CompilerModule* mod = ModuleLoader::load("./modules/spinc.so");
+
+	Compiler c;
+
+	if (argv == 0)
+	{
+		std::cout << "Usage: blah blah blah\n";
+	}
+
+	//std::string path(argv[1]);
+	std::string path("../../solarcar/modbusmaster.spin");
+
+	c.compileFile(path);
 }

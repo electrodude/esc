@@ -4,6 +4,20 @@ typedef CompilerModule* (*loadfunc_t)(CompilerRegistry*);
 
 typedef void (*unloadfunc_t)(CompilerModule*);
 
+std::map<std::string, CompilerModule*> modules;
+
+CompilerModule* ModuleLoader::load(std::string path)
+{
+	char* cpath = realpath(path.c_str(), NULL);
+	path = std::string(cpath);
+	free(cpath);
+	CompilerModule* mod = (new ModuleLoader(path))->getModule();
+
+	modules[path] = mod;
+
+	return mod;
+}
+
 void chkerr()
 {
 	char* err = dlerror();
@@ -14,13 +28,13 @@ void chkerr()
 	}
 }
 
-ModuleLoader::ModuleLoader(std::string path, CompilerRegistry* registry)
+ModuleLoader::ModuleLoader(std::string path)
 {
 	lib = dlopen(path.c_str(), RTLD_LAZY | RTLD_GLOBAL);	// TODO: find a way to make this not global
 	chkerr();
 	loadfunc_t loadfunc = (loadfunc_t)dlsym(lib, "loadModule");
 	chkerr();
-	mod = loadfunc(registry);
+	mod = loadfunc(&registry);
 
 	mod->loader = this;
 }

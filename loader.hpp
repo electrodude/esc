@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdio>
+#include <map>
+#include <string>
 
 #ifdef __linux__
 #include <dlfcn.h>
@@ -15,10 +17,14 @@ typedef HMODULE library;
 #include "module.hpp"
 #include "registry.hpp"
 
+extern std::map<std::string, CompilerModule*> modules;
+
 class ModuleLoader
 {
 public:
-	ModuleLoader(std::string path, CompilerRegistry* registry);
+	ModuleLoader(std::string path);
+
+	static CompilerModule* load(std::string path);
 
 	virtual ~ModuleLoader();
 

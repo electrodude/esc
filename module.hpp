@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "symtab.hpp"
 #include "registry.hpp"
 
@@ -23,6 +25,8 @@ public:
 	virtual ~BlockFactory() {};
 
 	virtual Block* newBlock(std::string code) = 0;
+
+	virtual std::string name() = 0;
 };
 
 class CompilerRegistry;
@@ -31,11 +35,9 @@ class ModuleLoader;
 class CompilerModule
 {
 public:
-	CompilerModule(CompilerRegistry& registry) : m_registry(&registry) {};
+//	CompilerModule();
 
 	virtual ~CompilerModule() {};
-
-	CompilerRegistry* m_registry;
 
 	ModuleLoader* loader;
 };
