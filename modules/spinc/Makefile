@@ -1,6 +1,6 @@
 #CFLAGS=-std=c99 -Og -g -fpermissive -fPIC -rdynamic -I../
 CXXFLAGS=-std=c++11 -Og -g -fpermissive -fPIC -rdynamic -I../../
-LDFLAGS=../../module.o ../../registry.o -lm -rdynamic -shared
+LDFLAGS=../../module.a -lm -rdynamic -shared
 CC=gcc
 CXX=g++
 LD=g++
@@ -13,7 +13,7 @@ clean:
 		rm -vf *.o *.so
 
 %.so:		%.o
-		@#echo `realpath ../../module.so`
+		@#echo `realpath ../../module.a`
 		${LD} -o $@ $^ ${LDFLAGS}
 
 #%.o:		%.c %.h

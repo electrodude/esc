@@ -6,6 +6,7 @@ SOFLAGS=-rdynamic -shared
 CC=gcc
 CXX=g++
 LD=g++
+AR=ar
 
 .PHONY:		all clean modules
 
@@ -15,18 +16,18 @@ clean:
 		rm -vf *.o main module.so
 		make -C modules clean
 
-modules:	module.so
+modules:	module.a
 		make -C modules all
 
-main:		main.o loader.o module.o registry.o
+main:		main.o loader.o module.a
 		${LD} -o $@ $^ ${LDFLAGS} ${EXFLAGS}
 
-module.so:	module.o registry.o
-		${LD} -o $@ $^ ${LDFLAGS} ${SOFLAGS}
+module.a:	module.o registry.o
+		${AR} rcs $@ $^
 
 main.hpp:	loader.hpp
 
-module.so:	loader.hpp
+module.a:	loader.hpp
 
 loader.hpp:	module.hpp
 
