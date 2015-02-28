@@ -17,13 +17,14 @@ int main(int argc, char** argv)
 
 	Compiler c;
 
-	if (argv == 0)
+	if (argc <= 1)
 	{
 		std::cout << "Usage: blah blah blah\n";
+
+		exit(0);
 	}
 
-	//std::string path(argv[1]);
-	std::string path("../../solarcar/modbusmaster.spin");
+	std::string path(argv[1]);
 
 	c.compileFile(path);
 }
