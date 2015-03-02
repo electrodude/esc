@@ -19,7 +19,7 @@ Block* VARBlockFactory::newBlock(std::string code)
 	return new VARBlock(code);
 }
 
-std::string VARBlockFactory::name()
+std::string VARBlockFactory::getName() const
 {
 	return "var";
 }

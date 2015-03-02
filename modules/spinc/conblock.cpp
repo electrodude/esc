@@ -19,7 +19,7 @@ Block* CONBlockFactory::newBlock(std::string code)
 	return new CONBlock(code);
 }
 
-std::string CONBlockFactory::name()
+std::string CONBlockFactory::getName() const
 {
 	return "con";
 }

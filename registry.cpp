@@ -15,7 +15,7 @@ CompilerRegistry::~CompilerRegistry()
 
 void CompilerRegistry::operator()(BlockFactory* factory)
 {
-	blocks[factory->name()] = factory;
+	blocks[factory->getName()] = factory;
 }
 
 BlockFactory* CompilerRegistry::getBlock(std::string id)

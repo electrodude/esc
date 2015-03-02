@@ -19,7 +19,7 @@ Block* PRIBlockFactory::newBlock(std::string code)
 	return new PRIBlock(code);
 }
 
-std::string PRIBlockFactory::name()
+std::string PRIBlockFactory::getName() const
 {
 	return "pri";
 }

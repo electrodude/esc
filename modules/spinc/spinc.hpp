@@ -17,7 +17,7 @@ public:
 
 	virtual Block* newBlock(std::string code);
 
-	virtual std::string name();
+	virtual std::string getName() const;
 };
 
 class OBJBlock : public Block
@@ -35,7 +35,7 @@ public:
 
 	virtual Block* newBlock(std::string code);
 
-	virtual std::string name();
+	virtual std::string getName() const;
 };
 
 class VARBlock : public Block
@@ -53,7 +53,7 @@ public:
 
 	virtual Block* newBlock(std::string code);
 
-	virtual std::string name();
+	virtual std::string getName() const;
 };
 
 
@@ -72,7 +72,7 @@ public:
 
 	virtual Block* newBlock(std::string code);
 
-	virtual std::string name();
+	virtual std::string getName() const;
 };
 
 class PRIBlock : public Block
@@ -90,7 +90,7 @@ public:
 
 	virtual Block* newBlock(std::string code);
 
-	virtual std::string name();
+	virtual std::string getName() const;
 };
 
 class DATBlock : public Block
@@ -108,7 +108,7 @@ public:
 
 	virtual Block* newBlock(std::string code);
 
-	virtual std::string name();
+	virtual std::string getName() const;
 };
 
 

@@ -19,7 +19,7 @@ Block* DATBlockFactory::newBlock(std::string code)
 	return new DATBlock(code);
 }
 
-std::string DATBlockFactory::name()
+std::string DATBlockFactory::getName() const
 {
 	return "dat";
 }

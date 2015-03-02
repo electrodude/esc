@@ -19,7 +19,7 @@ Block* OBJBlockFactory::newBlock(std::string code)
 	return new OBJBlock(code);
 }
 
-std::string OBJBlockFactory::name()
+std::string OBJBlockFactory::getName() const
 {
 	return "obj";
 }

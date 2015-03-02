@@ -30,7 +30,7 @@ void chkerr()
 
 ModuleLoader::ModuleLoader(std::string path)
 {
-	lib = dlopen(path.c_str(), RTLD_LAZY | RTLD_GLOBAL);	// TODO: find a way to make this not global
+	lib = dlopen(path.c_str(), RTLD_LAZY);
 	chkerr();
 	loadfunc_t loadfunc = (loadfunc_t)dlsym(lib, "loadModule");
 	chkerr();

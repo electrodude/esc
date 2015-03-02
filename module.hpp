@@ -28,7 +28,7 @@ public:
 
 	virtual Block* newBlock(std::string code) = 0;
 
-	virtual std::string name() = 0;
+	virtual std::string getName() const = 0;
 };
 
 class CompilerRegistry;

@@ -19,7 +19,7 @@ Block* PUBBlockFactory::newBlock(std::string code)
 	return new PUBBlock(code);
 }
 
-std::string PUBBlockFactory::name()
+std::string PUBBlockFactory::getName() const
 {
 	return "pub";
 }

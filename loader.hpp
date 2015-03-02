@@ -31,7 +31,7 @@ public:
 	virtual CompilerModule* getModule() const;
 
 protected:
-	library* lib;
+	library lib;
 
 	CompilerModule* mod;
 };
