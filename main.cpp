@@ -9,10 +9,15 @@
 
 #include "compiler.hpp"
 
+#include "settings.hpp"
+
 #include "main.hpp"
 
-int main(int argc, char** argv)
+Settings settings;
+
+int main(int argc, char* argv[])
 {
+
 	CompilerModule* mod = ModuleLoader::load("./modules/spinc.so");
 
 	Compiler c;

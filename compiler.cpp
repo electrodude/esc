@@ -4,6 +4,10 @@
 #include <string>
 #include <algorithm>
 
+//#include <iterator>
+
+#include "settings.hpp"
+
 #include "compiler.hpp"
 
 SpinObject::SpinObject(std::string code)
@@ -20,53 +24,84 @@ SpinObject::SpinObject(std::string code)
 
 	std::string::iterator start = code.begin();
 	std::string::iterator end = start;
+
+	int commentdepth = 0;
+
+	int maxCommentLevel = settings.maxCommentLevel;
+
+
 	while (end != code.end())
 	{
 		//std::cout << *end;
-		if (*end == '\n' && *(end+1) != '\n')
+		switch (*end)
 		{
-			std::string::iterator end2 = end;
-
-			end2++;
-
-			while ((*end2 != ' ' && *end2 != '\n') && end2 != code.end())
+			case '{':
 			{
-				//std::cout << "block char: " << *end2 << '\n';
-				end2++;
+				if (++commentdepth > maxCommentLevel)
+				{
+					commentdepth = maxCommentLevel;
+				}
+				break;
 			}
-
-			std::string blockname = std::string(end+1, end2);
-
-			std::transform(blockname.begin(), blockname.end(), blockname.begin(), ::tolower);
-
-			//std::cout << "potential block: " << blockname << '\n';
-
-			BlockFactory* nextBlock = blocktypes[blockname];
-
-			if (nextBlock != NULL)
+			case '}':
 			{
-				if (currBlock != NULL) // in case CON isn't defined
+				if (--commentdepth < 0)
 				{
-					currBlock->newBlock(std::string(start, end-1));
+					commentdepth = 0;
 				}
-				else
+				break;
+			}
+			case '\n':
+			{
+				if (commentdepth == 0 && *(end+1) != '\n')
 				{
-					std::cout << "Block: " << std::string(start, end-1) << '\n';
+					std::string::iterator end2 = end;
+
+					end2++;
+
+					while ((*end2 != ' ' && *end2 != '\n' && *end2 != '{') && end2 != code.end())
+					{
+						//std::cout << "block char: " << *end2 << '\n';
+						end2++;
+					}
+
+					std::string blockname = std::string(end+1, end2);
+
+					std::transform(blockname.begin(), blockname.end(), blockname.begin(), ::tolower);
+
+					//std::cout << "potential block: " << blockname << '\n';
+
+					BlockFactory* nextBlock = blocktypes[blockname];
+
+					//std::cout << "length: " << std::distance(start, end+1) << '\n';
+
+					if (nextBlock != NULL)
+					{
+						if (currBlock != NULL) // in case CON isn't defined
+						{
+							currBlock->newBlock(std::string(start, end+1));
+						}
+						else
+						{
+							std::cout << "Block: " << std::string(start, end+1) << '\n';
+						}
+
+
+						end = end2;
+						start = end+1;
+
+						currBlock = nextBlock;
+						//std::cout << "Next block type: " << blockname << '\n';
+					}
+
 				}
-
-
-				end = end2;
-				start = end+1;
-
-				currBlock = nextBlock;
-				//std::cout << "Next block type: " << blockname << '\n';
 			}
 		}
 
 		end++;
 	}
 
-	currBlock->newBlock(std::string(start+1, end-1));	
+	currBlock->newBlock(std::string(start+1, end+1));
 }
 
 Compiler::Compiler()
