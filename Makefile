@@ -19,7 +19,7 @@ clean:
 modules:	module.a
 		make -C modules all
 
-main:		main.o loader.o compiler.o symtab.o misc.o module.a
+main:		main.o loader.o compiler.o parser.o symtab.o misc.o module.a
 		${LD} -o $@ $^ ${LDFLAGS} ${EXFLAGS}
 
 module.a:	module.o registry.o
