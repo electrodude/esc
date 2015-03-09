@@ -18,7 +18,7 @@ Settings settings;
 int main(int argc, char* argv[])
 {
 
-	CompilerModule* mod = ModuleLoader::load("./modules/libspinc.so");
+	CompilerModule* mod = ModuleLoader::load("./modules/spinc/libspinc.so");
 
 	Compiler c;
 
