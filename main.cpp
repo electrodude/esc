@@ -18,7 +18,7 @@ Settings settings;
 int main(int argc, char* argv[])
 {
 
-	CompilerModule* mod = ModuleLoader::load("./modules/spinc.so");
+	CompilerModule* mod = ModuleLoader::load("./modules/spinc/libspinc.so");
 
 	Compiler c;
 
@@ -32,4 +32,6 @@ int main(int argc, char* argv[])
 	std::string path(argv[1]);
 
 	c.compileFile(path);
+
+	return 0;
 }
