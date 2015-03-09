@@ -25,6 +25,9 @@
     * params, locals: compile-time lists of names and types of params and locals
     * code: string of block body
 
+  * DAT macros
+    * All PASM instructions will actually be macros that emit `long %opcode_ ...` - makes it trivial to add new PASM instructions, even if the instruction format is changed
+
 * Basic type system
   * Only makes compiler warnings by default
   * Infers types where possible
