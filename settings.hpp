@@ -2,10 +2,10 @@ struct Settings
 {
 	Settings()
 	{
-		maxCommentLevel = 2;
+		maxCommentLength = 2;
 	}
 
-	int maxCommentLevel;
+	int maxCommentLength;
 };
 
 extern Settings settings;

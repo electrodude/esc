@@ -3,5 +3,14 @@ bin
 *.o
 *.so
 *.a
-main
+esc
 .*.swp
+
+# generated from blocksplitter.rl
+blocksplitter.cpp
+
+# for CMake
+Makefile
+CMakeFiles
+cmake_install.cmake
+install_manifest.txt
