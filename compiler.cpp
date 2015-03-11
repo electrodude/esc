@@ -25,6 +25,7 @@ SpinObject* Compiler::compileFile(Path path)
 
 	std::stringstream s;
 	s << f.rdbuf();
+	s << '\n'; // hack: instead of properly handling no trailing newline, just add a trailing newline
 
 	SpinObject* obj = new SpinObject(s.str());
 

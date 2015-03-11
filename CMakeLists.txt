@@ -13,6 +13,11 @@ include(ragel.cmake)
 
 ragel_gen(blocksplitter)
 
+#add_custom_target(${CMAKE_SOURCE_DIR}/blocksplitter.cpp
+#	          DEPENDS ${CMAKE_SOURCE_DIR}/comment.rl)
+
+add_dependencies(ragel_blocksplitter ${CMAKE_CURRENT_SOURCE_DIR}/comment.rl)
+
 add_executable(esc
     main
     loader
