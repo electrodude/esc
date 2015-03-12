@@ -14,7 +14,7 @@ OBJBlockFactory::OBJBlockFactory()
 	printf("OBJ block registered!\n");
 }
 
-Block* OBJBlockFactory::newBlock(std::string code)
+Block* OBJBlockFactory::newBlock(std::string code) const
 {
 	return new OBJBlock(code);
 }

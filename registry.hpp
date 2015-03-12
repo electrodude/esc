@@ -14,16 +14,16 @@ public:
 
 	virtual ~CompilerRegistry();
 
-	void operator()(BlockFactory* factory);
+	void operator()(const BlockFactory* factory);
 
-	BlockFactory* getBlock(std::string id);
+	const BlockFactory* getBlock(std::string id);
 
-	std::map<std::string, BlockFactory*> getDefaultBlocks();
+	std::map<std::string, const BlockFactory*> getDefaultBlocks();
 
 private:
-	std::map<std::string, BlockFactory*> defaultblocks;
+	std::map<std::string, const BlockFactory*> defaultblocks;
 
-	std::map<std::string, BlockFactory*> blocks;
+	std::map<std::string, const BlockFactory*> blocks;
 };
 
 extern CompilerRegistry registry;

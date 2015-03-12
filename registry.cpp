@@ -13,17 +13,17 @@ CompilerRegistry::~CompilerRegistry()
 
 }
 
-void CompilerRegistry::operator()(BlockFactory* factory)
+void CompilerRegistry::operator()(const BlockFactory* factory)
 {
 	blocks[factory->getName()] = factory;
 }
 
-BlockFactory* CompilerRegistry::getBlock(std::string id)
+const BlockFactory* CompilerRegistry::getBlock(std::string id)
 {
 	return blocks[id];
 }
 
-std::map<std::string, BlockFactory*> CompilerRegistry::getDefaultBlocks()
+std::map<std::string, const BlockFactory*> CompilerRegistry::getDefaultBlocks()
 {
 	// TODO: don't set these every time
 	defaultblocks["con"] = getBlock("con");

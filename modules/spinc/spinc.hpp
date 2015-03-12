@@ -15,7 +15,7 @@ class CONBlockFactory : public BlockFactory
 public:
 	CONBlockFactory();
 
-	virtual Block* newBlock(std::string code);
+	virtual Block* newBlock(std::string code) const;
 
 	virtual std::string getName() const;
 };
@@ -33,7 +33,7 @@ class OBJBlockFactory : public BlockFactory
 public:
 	OBJBlockFactory();
 
-	virtual Block* newBlock(std::string code);
+	virtual Block* newBlock(std::string code) const;
 
 	virtual std::string getName() const;
 };
@@ -51,7 +51,7 @@ class VARBlockFactory : public BlockFactory
 public:
 	VARBlockFactory();
 
-	virtual Block* newBlock(std::string code);
+	virtual Block* newBlock(std::string code) const;
 
 	virtual std::string getName() const;
 };
@@ -70,7 +70,7 @@ class PUBBlockFactory : public BlockFactory
 public:
 	PUBBlockFactory();
 
-	virtual Block* newBlock(std::string code);
+	virtual Block* newBlock(std::string code) const;
 
 	virtual std::string getName() const;
 };
@@ -88,7 +88,7 @@ class PRIBlockFactory : public BlockFactory
 public:
 	PRIBlockFactory();
 
-	virtual Block* newBlock(std::string code);
+	virtual Block* newBlock(std::string code) const;
 
 	virtual std::string getName() const;
 };
@@ -106,7 +106,7 @@ class DATBlockFactory : public BlockFactory
 public:
 	DATBlockFactory();
 
-	virtual Block* newBlock(std::string code);
+	virtual Block* newBlock(std::string code) const;
 
 	virtual std::string getName() const;
 };

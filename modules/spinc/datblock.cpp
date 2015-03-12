@@ -14,7 +14,7 @@ DATBlockFactory::DATBlockFactory()
 	printf("DAT block registered!\n");
 }
 
-Block* DATBlockFactory::newBlock(std::string code)
+Block* DATBlockFactory::newBlock(std::string code) const
 {
 	return new DATBlock(code);
 }

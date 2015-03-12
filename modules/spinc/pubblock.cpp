@@ -14,7 +14,7 @@ PUBBlockFactory::PUBBlockFactory()
 	printf("PUB block registered!\n");
 }
 
-Block* PUBBlockFactory::newBlock(std::string code)
+Block* PUBBlockFactory::newBlock(std::string code) const
 {
 	return new PUBBlock(code);
 }

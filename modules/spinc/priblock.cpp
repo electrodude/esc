@@ -14,7 +14,7 @@ PRIBlockFactory::PRIBlockFactory()
 	printf("PRI block registered!\n");
 }
 
-Block* PRIBlockFactory::newBlock(std::string code)
+Block* PRIBlockFactory::newBlock(std::string code) const
 {
 	return new PRIBlock(code);
 }

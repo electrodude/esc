@@ -14,7 +14,7 @@ VARBlockFactory::VARBlockFactory()
 	printf("VAR block registered!\n");
 }
 
-Block* VARBlockFactory::newBlock(std::string code)
+Block* VARBlockFactory::newBlock(std::string code) const
 {
 	return new VARBlock(code);
 }

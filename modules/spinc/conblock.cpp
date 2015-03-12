@@ -14,7 +14,7 @@ CONBlockFactory::CONBlockFactory()
 	printf("CON block registered!\n");
 }
 
-Block* CONBlockFactory::newBlock(std::string code)
+Block* CONBlockFactory::newBlock(std::string code) const
 {
 	return new CONBlock(code);
 }

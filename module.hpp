@@ -26,7 +26,7 @@ public:
 
 	virtual ~BlockFactory() {};
 
-	virtual Block* newBlock(std::string code) = 0;
+	virtual Block* newBlock(std::string code) const = 0;
 
 	virtual std::string getName() const = 0;
 };
