@@ -3,5 +3,11 @@ bin
 *.o
 *.so
 *.a
-main
+esc
 .*.swp
+
+# for CMake
+Makefile
+CMakeFiles
+cmake_install.cmake
+install_manifest.txt
