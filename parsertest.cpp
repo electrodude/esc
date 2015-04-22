@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 	errstate->name = "error";
 
 	ParserStateChar* defaultstate = new ParserStateChar(errstate, NULL);
-	defaultstate->name = "";
+	defaultstate->name = "default";
 
 	defaultstate->templatestate = defaultstate;
 
@@ -46,6 +46,10 @@ int main(int argc, char** argv)
 
 	ParserStateChar* newline = new ParserStateChar(errstate, defaultstate);
 	newline->name = "newline";
+	newline->add(' ', newline);
+	newline->add('\t', newline);
+	newline->add('\n', newline);
+	newline->add('\r', newline);
 
 	ParserStateChar* comment = new ParserStateChar();
 	comment->name = "comment";

@@ -1,5 +1,18 @@
 #include "parser.hpp"
 
+std::string st2s(const ParserState* st)
+{
+	std::stringstream out;
+	out << "(" << st << ")";
+
+	if (st != NULL && st->name != "")
+	{
+		out << "[" << st->name << "]";
+	}
+
+	return out.str();
+}
+
 Token::Token(std::string::iterator start, std::string::iterator end, Parser* parser)
 {
 	tok = std::string(start, end);
@@ -13,7 +26,7 @@ Token* TokenFactory::factory_new(std::string::iterator start, std::string::itera
 
 ParserState* ParserStateTransition::next(Parser* parser)
 {
-	std::cout << "transition" << this << "\n";
+	std::cout << "transition" << st2s(this) << "\n";
 
 	return nextstate;
 }
@@ -21,14 +34,14 @@ ParserState* ParserStateTransition::next(Parser* parser)
 
 ParserState* ParserStateDebug::next(Parser* parser)
 {
-	std::cout << "debug" << this << ": " << msg;
+	std::cout << "debug" << st2s(this) << ": " << msg;
 
 	return nextstate;
 }
 
 ParserState* ParserStateBackUp::next(Parser* parser)
 {
-	std::cout << "backup" << this << "\n";
+	std::cout << "backup" << st2s(this) << "\n";
 
 	parser->curr -= distance;
 
@@ -39,7 +52,7 @@ ParserState* ParserStateBackUp::next(Parser* parser)
 // Default constuctor, initializes everything to NULL (is this necessary?)
 ParserStateChar::ParserStateChar() : templatestate(this)
 {
-	std::cout << "char new" << this << "\n";
+	std::cout << "char" << st2s(this) << " new" << st2s(this) << "\n";
 
 	for (int i=0; i<256; i++)
 	{
@@ -50,7 +63,7 @@ ParserStateChar::ParserStateChar() : templatestate(this)
 // Clone constructor.  Updates all self references, copies all others
 ParserStateChar::ParserStateChar(const ParserStateChar& original) : templatestate(original.templatestate)
 {
-	std::cout << "char clone" << &original << "\n";
+	std::cout << "char" << st2s(this) << " clone" << st2s(&original) << "\n";
 
 	for (int i=0; i<256; i++)
 	{
@@ -67,7 +80,7 @@ ParserStateChar::ParserStateChar(const ParserStateChar& original) : templatestat
 
 ParserStateChar::ParserStateChar(ParserState* _defaultstate, ParserStateChar* _templatestate) : templatestate(_templatestate)
 {
-	std::cout << "char basic " << _defaultstate << ", " << _templatestate << "\n";
+	std::cout << "char" << st2s(this) << " basic " << _defaultstate << ", " << _templatestate << "\n";
 
 	for (int i=0; i<256; i++)
 	{
@@ -78,7 +91,7 @@ ParserStateChar::ParserStateChar(ParserState* _defaultstate, ParserStateChar* _t
 // copy transitions from another state
 void ParserStateChar::add(const ParserStateChar& other)
 {
-	std::cout << "char" << this << " |= " << &other << "\n";
+	std::cout << "char" << st2s(this) << " |= " << st2s(&other) << "\n";
 
 	for (int i=0; i<256; i++)
 	{
@@ -93,7 +106,7 @@ void ParserStateChar::add(const ParserStateChar& other)
 // add char transition
 void ParserStateChar::add(unsigned char c, ParserState* nextstate)
 {
-	std::cout << "char" << this << " add char " << c2s(c) << "\n";
+	std::cout << "char" << st2s(this) << " add char " << c2s(c) << "\n";
 
 	transitions[c] = nextstate;
 }
@@ -101,7 +114,7 @@ void ParserStateChar::add(unsigned char c, ParserState* nextstate)
 // range
 void ParserStateChar::add(unsigned char first, unsigned char last, ParserState* nextstate)
 {
-	std::cout << "char" << this << " add range [" << first << "-" << last << "](" << ((unsigned int)(first) & 255) << "-" << ((unsigned int)(last) & 255) << ") -> " << nextstate << "[" << nextstate->name << "]\n";
+	std::cout << "char" << st2s(this) << " add range [" << first << "-" << last << "](" << ((unsigned int)(first) & 255) << "-" << ((unsigned int)(last) & 255) << ") -> " << nextstate << "[" << nextstate->name << "]\n";
 	for (unsigned char curr=first; curr != last; curr++)
 	{
 		transitions[curr] = nextstate;
@@ -112,7 +125,7 @@ void ParserStateChar::add(unsigned char first, unsigned char last, ParserState* 
 // replace occurences of one transition state with another
 void ParserStateChar::replace(ParserState* target, ParserState* replacement)
 {
-	std::cout << "char" << this << " repl " << target << " -> " << replacement << "]\n";
+	std::cout << "char" << st2s(this) << " repl " << st2s(target) << " -> " << st2s(replacement) << "]\n";
 
 	for (int i=0; i<256; i++)
 	{
@@ -127,7 +140,7 @@ void ParserStateChar::replace(ParserState* target, ParserState* replacement)
 // add string transition
 void ParserStateChar::add(std::string word, ParserState* nextstate)
 {
-	std::cout << "char" << this << " add word \"" << word << "\" -> " << nextstate << "\n";
+	std::cout << "char" << st2s(this) << " add word \"" << word << "\" -> " << st2s(nextstate) << "\n";
 
 	add(word.begin(), word.end(), nextstate);
 }
@@ -135,8 +148,8 @@ void ParserStateChar::add(std::string word, ParserState* nextstate)
 // add string transition by start and end iterators
 void ParserStateChar::add(std::string::iterator start, std::string::iterator end, ParserState* nextstate)
 {
-	//std::cout << "char" << this << " add i \"" << std::string(start, end) << "\"[0] == " << c2s(*start) << " -> " << nextstate << "\n";
-	std::cout << "char" << this << " add i \"" << std::string(start, end) << "\"[0] == " << c2s(*start) << " -> " << nextstate << ": ";
+	//std::cout << "char" << st2s(this) << " add i \"" << std::string(start, end) << "\"[0] == " << c2s(*start) << " -> " << st2s(nextstate) << "\n";
+	std::cout << "char" << st2s(this) << " add i \"" << std::string(start, end) << "\"[0] == " << c2s(*start) << " -> " << st2s(nextstate) << ": ";
 
 	if (start == end)
 	{
@@ -163,7 +176,7 @@ void ParserStateChar::add(std::string::iterator start, std::string::iterator end
 
 		if (consed)
 		{
-			transitions[*start]->name = transitions[*start]->name.append(name);
+			transitions[*start]->name = name + "," + *start;
 		}
 
 		std::cout << "more\n";
@@ -176,7 +189,7 @@ void ParserStateChar::add(std::string::iterator start, std::string::iterator end
 
 ParserState* ParserStateChar::next(Parser* parser)
 {
-	std::cout << "char" << this << ": " << c2s(*parser->curr) << "\n";
+	std::cout << "char" << st2s(this) << ": " << c2s(*parser->curr) << "\n";
 
 	ParserState* nextstate = transitions[*parser->curr];
 
@@ -186,32 +199,10 @@ ParserState* ParserStateChar::next(Parser* parser)
 }
 
 
-std::ostream& ParserState::print(std::ostream& out) const
-{
-	out << "(" << this << ")";
-
-	if (this != NULL)
-	{
-		out << "[" << this->name << "]";
-	}
-
-	return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const ParserState& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateTransition& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateDebug& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateBackUp& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateChar& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateCall& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateRet& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateMark& st) { return st.print(out); }
-std::ostream& operator<<(std::ostream& out, const ParserStateEmit& st) { return st.print(out); }
-
 
 ParserState* ParserStateCall::next(Parser* parser)
 {
-	std::cout << "char" << this << "\n";
+	std::cout << "char" << st2s(this) << "\n";
 
 	stack->push(retstate);
 
@@ -220,7 +211,7 @@ ParserState* ParserStateCall::next(Parser* parser)
 
 ParserState* ParserStateRet::next(Parser* parser)
 {
-	std::cout << "ret" << this << "\n";
+	std::cout << "ret" << st2s(this) << "\n";
 
 	if (!stack->empty())
 	{
@@ -234,7 +225,7 @@ ParserState* ParserStateRet::next(Parser* parser)
 
 ParserState* ParserStateMark::next(Parser* parser)
 {
-	std::cout << "mark" << this << "\n";
+	std::cout << "mark" << st2s(this) << "\n";
 
 	*mark = parser->curr;
 
@@ -243,7 +234,7 @@ ParserState* ParserStateMark::next(Parser* parser)
 
 ParserState* ParserStateEmit::next(Parser* parser)
 {
-	std::cout << "emit" << this << "\n";
+	std::cout << "emit" << st2s(this) << "\n";
 
 	std::string::iterator enditer = endmark != NULL ? *endmark : parser->curr;
 
@@ -260,15 +251,15 @@ Parser::Parser(ParserState* initial, std::string& code) : currState(initial), cu
 
 void Parser::parse()
 {
-	std::cout << "initial state: " << currState << "; initial char: '" << *curr << "' (" << ((unsigned int)((*curr) & 255)) << "); " << std::distance(curr,end) << " chars left\n";
+	std::cout << "initial state: " << st2s(currState) << "; initial char: " << c2s(*curr) << "; " << std::distance(curr,end) << " chars left\n";
 
 	while (curr != end && currState != NULL)
 	{
-		std::cout << "current state: " << currState << "; current char: '" << *curr << "' (" << ((unsigned int)((*curr) & 255)) << "); " << std::distance(curr,end) << " chars left\n";
+		std::cout << "current state: " << st2s(currState) << "; current char: " << c2s(*curr) << "; " << std::distance(curr,end) << " chars left\n";
 		currState = currState->next(this);
 	}
 
-	std::cout << "final state: " << currState << "; final char: '" << *curr << "' (" << ((unsigned int)(*curr) & 255) << "); " << std::distance(curr,end) << " chars left\n";
+	std::cout << "final state: " << st2s(currState) << "; final char: " << c2s(*curr) << "; " << std::distance(curr,end) << " chars left\n";
 
 
 	std::cout << "Done!\n";

@@ -39,7 +39,7 @@ public:
 
 	std::string name;	// for debug
 
-	virtual std::ostream& print(std::ostream& out) const;
+	//virtual std::ostream& print(std::ostream& out) const;
 };
 
 // Superclass for states that have exactly one non-error next state
