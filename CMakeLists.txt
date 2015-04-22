@@ -15,8 +15,13 @@ add_executable(esc
     symtab
     misc)
 
+add_executable(parsertest
+    parsertest.cpp
+    parser)
+
 add_library(module STATIC
     module
+    parser
     registry)
 
 target_link_libraries(esc module dl m)
