@@ -1,0 +1,179 @@
+################################ lines ################################
+
+#debug:"Parse error!" error
+
+error NULL
+
+callstack@retstack
+
+return@ret:retstack
+
+char@default?error
+
+char@newline?error
+
+default "\n" newline
+default "\r" default
+default "\t" default
+default " " default
+
+newline " " newline
+newline "\t" newline
+newline "\n" newline
+newline "\r" newline
+
+
+################################ comment ################################
+
+char@comment:comment
+
+newline "#" comment
+
+comment "\n" newline
+
+
+################################ label ################################
+
+marker@labelmark
+
+mark@marklabel:labelmark
+
+char@labelend
+labelend emit@labelmark:curr ret
+
+char@label?labelend
+
+label " " label
+label "\t" label
+label "_" marklabel
+label "a" marklabel
+label "b" marklabel
+label "c" marklabel
+label "d" marklabel
+label "e" marklabel
+label "f" marklabel
+label "g" marklabel
+label "h" marklabel
+label "i" marklabel
+label "j" marklabel
+label "k" marklabel
+label "l" marklabel
+label "m" marklabel
+label "n" marklabel
+label "o" marklabel
+label "p" marklabel
+label "q" marklabel
+label "r" marklabel
+label "s" marklabel
+label "t" marklabel
+label "u" marklabel
+label "v" marklabel
+label "w" marklabel
+label "x" marklabel
+label "y" marklabel
+label "z" marklabel
+label "A" marklabel
+label "B" marklabel
+label "C" marklabel
+label "D" marklabel
+label "E" marklabel
+label "F" marklabel
+label "G" marklabel
+label "H" marklabel
+label "I" marklabel
+label "J" marklabel
+label "K" marklabel
+label "L" marklabel
+label "M" marklabel
+label "N" marklabel
+label "O" marklabel
+label "P" marklabel
+label "Q" marklabel
+label "R" marklabel
+label "S" marklabel
+label "T" marklabel
+label "U" marklabel
+label "V" marklabel
+label "W" marklabel
+label "X" marklabel
+label "Y" marklabel
+label "Z" marklabel
+
+char@labelchar?labelend
+
+marklabel labelchar
+
+labelchar "_" labelchar
+labelchar "0" labelchar
+labelchar "1" labelchar
+labelchar "2" labelchar
+labelchar "3" labelchar
+labelchar "4" labelchar
+labelchar "5" labelchar
+labelchar "6" labelchar
+labelchar "7" labelchar
+labelchar "8" labelchar
+labelchar "9" labelchar
+labelchar "a" labelchar
+labelchar "b" labelchar
+labelchar "c" labelchar
+labelchar "d" labelchar
+labelchar "e" labelchar
+labelchar "f" labelchar
+labelchar "g" labelchar
+labelchar "h" labelchar
+labelchar "i" labelchar
+labelchar "j" labelchar
+labelchar "k" labelchar
+labelchar "l" labelchar
+labelchar "m" labelchar
+labelchar "n" labelchar
+labelchar "o" labelchar
+labelchar "p" labelchar
+labelchar "q" labelchar
+labelchar "r" labelchar
+labelchar "s" labelchar
+labelchar "t" labelchar
+labelchar "u" labelchar
+labelchar "v" labelchar
+labelchar "w" labelchar
+labelchar "x" labelchar
+labelchar "y" labelchar
+labelchar "z" labelchar
+labelchar "A" labelchar
+labelchar "B" labelchar
+labelchar "C" labelchar
+labelchar "D" labelchar
+labelchar "E" labelchar
+labelchar "F" labelchar
+labelchar "G" labelchar
+labelchar "H" labelchar
+labelchar "I" labelchar
+labelchar "J" labelchar
+labelchar "K" labelchar
+labelchar "L" labelchar
+labelchar "M" labelchar
+labelchar "N" labelchar
+labelchar "O" labelchar
+labelchar "P" labelchar
+labelchar "Q" labelchar
+labelchar "R" labelchar
+labelchar "S" labelchar
+labelchar "T" labelchar
+labelchar "U" labelchar
+labelchar "V" labelchar
+labelchar "W" labelchar
+labelchar "X" labelchar
+labelchar "Y" labelchar
+labelchar "Z" labelchar
+
+
+################################ marker ################################
+
+newline "marker:" mark:markermark call:label
+
+
+setmark@exprstart:mark exprfirst
+
+char@exprfirst?default
+

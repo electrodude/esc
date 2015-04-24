@@ -215,9 +215,12 @@ ParserState* ParserStateRet::next(Parser* parser)
 
 	if (!stack->empty())
 	{
+		ParserState* tos = stack->top();
 		stack->pop();
-		return stack->top();
+		return tos;
 	}
+
+	std::cout << "ret failed!\n";
 
 	return failstate;
 }

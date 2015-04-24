@@ -22,13 +22,36 @@ public:
 	}
 };
 
+
+class TokenQuote : public Token
+{
+public:
+	TokenQuote(std::string::iterator start, std::string::iterator end, Parser* parser) : Token(start, end, parser) {}
+
+	virtual bool isIdent() const { return true; }
+
+};
+
+class TokenQuoteFactory : public TokenFactory
+{
+public:
+	virtual Token* factory_new(std::string::iterator start, std::string::iterator end, Parser* parser)
+	{
+		return new TokenQuote(start, end, parser);
+	}
+};
+
+
+
 int main(int argc, char** argv)
 {
 	std::cout << "Parser test...\n";
 
 	TokenFactory* labelfactory = new TokenLabelFactory();
+	TokenFactory* quotefactory = new TokenQuoteFactory();
 
-	std::stack<Token*> stack;
+	std::stack<Token*> tokenstack;
+	std::stack<ParserState*> callstack;
 
 	ParserStateDebug* errstate = new ParserStateDebug(NULL, "Parse error\n");
 	errstate->name = "error";
@@ -41,15 +64,81 @@ int main(int argc, char** argv)
 	ParserState* defaultstate2 = new ParserStateDebug(defaultstate, "entering default state\n");
 	defaultstate2->name = "default_dbg";
 
-	defaultstate->add(" ", defaultstate2);
-	defaultstate->add("\t", defaultstate2);
+	defaultstate->add(' ', defaultstate2);
+	defaultstate->add('\t', defaultstate2);
 
-	ParserStateChar* newline = new ParserStateChar(errstate, defaultstate);
+
+	std::string::iterator mark;
+	ParserStateChar* labelstartstate = new ParserStateChar(*defaultstate);
+	labelstartstate->name = "label_start";
+
+	ParserStateMark* labelstate = new ParserStateMark(labelstartstate, &mark);
+	labelstate->name = "label";
+
+
+	ParserStateTransition* labelstateend = new ParserStateBackUp(new ParserStateEmit(new ParserStateRet(errstate, &callstack), &mark, NULL, labelfactory, &tokenstack));
+	labelstateend->name = "label_end";
+
+	ParserStateChar* labelmidstate = new ParserStateChar(labelstateend, NULL);
+	labelmidstate->name = "label_mid";
+	labelmidstate->add('_', labelmidstate);
+	labelmidstate->add('a', 'z', labelmidstate);
+	labelmidstate->add('A', 'Z', labelmidstate);
+	labelmidstate->add('0', '9', labelmidstate);
+	labelmidstate->add(0x80, 0xFF, labelmidstate); // utf-8
+
+	labelstartstate->add('_', labelmidstate);
+	labelstartstate->add('a', 'z', labelmidstate);
+	labelstartstate->add('A', 'Z', labelmidstate);
+
+
+	ParserStateChar* idmodifierstate = new ParserStateChar(errstate, NULL);
+	idmodifierstate->name = "idmodifierstate";
+	idmodifierstate->add('@', new ParserStateCall(labelstate, idmodifierstate, &callstack));
+	idmodifierstate->add(':', new ParserStateCall(labelstate, idmodifierstate, &callstack));
+	idmodifierstate->add('?', new ParserStateCall(labelstate, idmodifierstate, &callstack));
+	idmodifierstate->replace(errstate, new ParserStateBackUp(defaultstate));
+
+	ParserStateCall* idstate = new ParserStateCall(labelstate, idmodifierstate, &callstack);
+	idstate->name = "idstate";
+
+
+	defaultstate->add('_', idstate);
+	defaultstate->add('a', 'z', idstate);
+	defaultstate->add('A', 'Z', idstate);
+
+
+
+	ParserStateChar* quotebodystate = new ParserStateChar(NULL, NULL);
+	quotebodystate->name = "quotebodystate";
+	quotebodystate->templatestate = quotebodystate;
+
+	ParserStateChar* quoteescapestate = new ParserStateChar(quotebodystate, quotebodystate);
+	quoteescapestate->name = "quoteescapestate";
+
+	quotebodystate->add('\\', quoteescapestate);
+	quotebodystate->add('"', new ParserStateEmit(new ParserStateRet(errstate, &callstack), &mark, NULL, quotefactory, &tokenstack));
+
+	quotebodystate->replace(NULL, quotebodystate);
+
+	ParserStateMark* quotestate = new ParserStateMark(quotebodystate, &mark);
+
+
+	defaultstate->add('"', new ParserStateCall(quotestate, defaultstate, &callstack));
+
+
+
+	ParserStateChar* newline = new ParserStateChar(*defaultstate);
 	newline->name = "newline";
 	newline->add(' ', newline);
 	newline->add('\t', newline);
+
 	newline->add('\n', newline);
 	newline->add('\r', newline);
+
+	defaultstate->add('\n', newline);
+	defaultstate->add('\r', newline);
+
 
 	ParserStateChar* comment = new ParserStateChar();
 	comment->name = "comment";
@@ -59,29 +148,7 @@ int main(int argc, char** argv)
 
 	newline->add('#', comment);
 
-	newline->add("debug", newline);
-
-	defaultstate->add('\n', newline);
-	defaultstate->add('\r', newline);
-
-	std::string::iterator mark;
-	ParserStateChar* labelstate = new ParserStateChar(*defaultstate);
-	labelstate->name = "label";
-	ParserStateMark* labelstartstate = new ParserStateMark(labelstate, &mark);
-	labelstartstate->name = "label_start";
-
-	labelstate->add('a', 'z', labelstate);
-	labelstate->add('A', 'Z', labelstate);
-
-	ParserStateTransition* labelstateend = new ParserStateEmit(defaultstate, &mark, NULL, labelfactory, &stack);
-	labelstateend->name = "label_end";
-
-	ParserStateChar* labelstatemid = new ParserStateChar(labelstateend, NULL);
-	labelstatemid->name = "label_mid";
-	labelstatemid->add('_', labelstatemid);
-	labelstatemid->add('a', 'z', labelstatemid);
-	labelstatemid->add('A', 'Z', labelstatemid);
-	labelstatemid->add('A', 'Z', labelstatemid);
+	//newline->add("debug", newline);
 
 
 
