@@ -10,6 +10,7 @@ class Parser;
 class Token
 {
 public:
+	Token() {};
 	Token(std::string::iterator start, std::string::iterator end, Parser* parser);
 
 	virtual ~Token() {}
@@ -29,10 +30,27 @@ public:
 	virtual Token* factory_new(std::string::iterator start, std::string::iterator end, Parser* parser);
 };
 
+class Operator : public Token
+{
+public:
+	Operator(std::string::iterator start, std::string::iterator end, Parser* parser);
+
+	virtual ~Operator() {};
+};
+
+class OperatorFactory
+{
+public:
+	virtual Operator* factory_new(std::string::iterator start, std::string::iterator end, Parser* parser);
+};
+
+
 // The basic abstract parser state
 class ParserState
 {
 public:
+	ParserState();
+
 	virtual ParserState* next(Parser* parser) = 0;
 
 	virtual bool hasToken() const { return false; }
@@ -40,6 +58,12 @@ public:
 	std::string name;	// for debug
 
 	//virtual std::ostream& print(std::ostream& out) const;
+
+	int graphviz_gen;
+
+	int id;
+	
+	virtual std::ostream& graphviz_append(std::ostream& out);
 };
 
 // Superclass for states that have exactly one non-error next state
@@ -52,6 +76,8 @@ public:
 	virtual ~ParserStateTransition() {}
 
 	virtual ParserState* next(Parser* parser);
+
+	virtual std::ostream& graphviz_append(std::ostream& out);
 
 	ParserState* nextstate;
 };
@@ -67,18 +93,22 @@ public:
 
 	virtual ParserState* next(Parser* parser);
 
+	//virtual std::ostream& graphviz_append(std::ostream& out);
+
 	std::string msg;
 };
 
-class ParserStateBackUp : public ParserStateTransition
+class ParserStateAdvance : public ParserStateTransition
 {
 public:
-	ParserStateBackUp(ParserState* _nextstate) : ParserStateTransition(_nextstate), distance(1) {}
-	ParserStateBackUp(ParserState* _nextstate, int _distance) : ParserStateTransition(_nextstate), distance(_distance) {}
+	ParserStateAdvance(ParserState* _nextstate) : ParserStateTransition(_nextstate), distance(1) {}
+	ParserStateAdvance(ParserState* _nextstate, int _distance) : ParserStateTransition(_nextstate), distance(_distance) {}
 
-	virtual ~ParserStateBackUp() {}
+	virtual ~ParserStateAdvance() {}
 
 	virtual ParserState* next(Parser* parser);
+
+	//virtual std::ostream& graphviz_append(std::ostream& out);
 
 	int distance;
 };
@@ -104,6 +134,9 @@ public:
 
 	virtual ParserState* next(Parser* parser);
 
+	virtual std::ostream& graphviz_append(std::ostream& out);
+
+	ParserState* defaultstate;
 	ParserStateChar* templatestate;
 
 	ParserState* transitions[256];
@@ -124,6 +157,8 @@ public:
 
 	virtual ParserState* next(Parser* parser);
 
+	//virtual std::ostream& graphviz_append(std::ostream& out);
+
 	ParserState* retstate;
 
 	std::stack<ParserState*>* stack;
@@ -141,6 +176,8 @@ public:
 	virtual ~ParserStateRet() {}
 
 	virtual ParserState* next(Parser* parser);
+
+	//virtual std::ostream& graphviz_append(std::ostream& out);
 
 	ParserState* failstate;
 
@@ -160,6 +197,8 @@ public:
 	virtual ~ParserStateMark() {}
 
 	virtual ParserState* next(Parser* parser);
+
+	//virtual std::ostream& graphviz_append(std::ostream& out);
 
 	std::string::iterator* mark;
 };
@@ -182,6 +221,8 @@ public:
 
 	virtual ParserState* next(Parser* parser);
 
+	//virtual std::ostream& graphviz_append(std::ostream& out);
+
 	std::string::iterator* startmark;
 
 	std::string::iterator* endmark;
@@ -191,6 +232,23 @@ public:
 	std::stack<Token*>* stack;
 };
 
+// operator end
+class ParserStateEmitOperator : public ParserStateEmit
+{
+public:
+	ParserStateEmitOperator();
+	ParserStateEmitOperator(ParserState* _nextstate, std::string::iterator* _startmark, std::string::iterator* _endmark, TokenFactory* _tokenfactory, std::stack<Token*>* _valuestack, std::stack<Operator*>* _operatorstack) :
+		ParserStateEmit(_nextstate, _startmark, _endmark, _tokenfactory, _valuestack),
+		operatorstack(_operatorstack) {}
+
+	virtual ~ParserStateEmitOperator() {}
+
+	virtual ParserState* next(Parser* parser);
+
+	//virtual std::ostream& graphviz_append(std::ostream& out);
+
+	std::stack<Operator*>* operatorstack;
+};
 
 // parser class
 class Parser
@@ -207,20 +265,6 @@ public:
 	ParserState* currState;
 };
 
-inline std::string c2s(char c)
-{
-	std::stringstream ss;
-	ss << "'";
-	switch (c)
-	{
-		case '\n': ss << "\\n"; break;
-		case '\r': ss << "\\r"; break;
-		case '\t': ss << "\\t"; break;
-		default  : ss << c; break;
-	}
 
-	ss << "'(" << ((unsigned int)(c) & 255) << ")";
-
-	return ss.str();
-}
+std::ostream& graphviz_gen(std::ostream& out, ParserState* root);
 

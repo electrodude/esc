@@ -7,7 +7,10 @@
 class TokenLabel : public Token
 {
 public:
-	TokenLabel(std::string::iterator start, std::string::iterator end, Parser* parser) : Token(start, end, parser) {}
+	TokenLabel(std::string::iterator start, std::string::iterator end, Parser* parser) : Token(start, end, parser)
+	{
+		std::cout << "Label: " << std::string(start, end) << "\n";
+	}
 
 	virtual bool isIdent() const { return true; }
 
@@ -26,7 +29,10 @@ public:
 class TokenQuote : public Token
 {
 public:
-	TokenQuote(std::string::iterator start, std::string::iterator end, Parser* parser) : Token(start, end, parser) {}
+	TokenQuote(std::string::iterator start, std::string::iterator end, Parser* parser) : Token(start, end, parser)
+	{
+		std::cout << "Quote: " << std::string(start, end) << "\n";
+	}
 
 	virtual bool isIdent() const { return true; }
 
@@ -37,7 +43,7 @@ class TokenQuoteFactory : public TokenFactory
 public:
 	virtual Token* factory_new(std::string::iterator start, std::string::iterator end, Parser* parser)
 	{
-		return new TokenQuote(start, end, parser);
+		return new TokenQuote(start, end-1, parser);
 	}
 };
 
@@ -51,6 +57,7 @@ int main(int argc, char** argv)
 	TokenFactory* quotefactory = new TokenQuoteFactory();
 
 	std::stack<Token*> tokenstack;
+	std::stack<Operator*> operatorstack;
 	std::stack<ParserState*> callstack;
 
 	ParserStateDebug* errstate = new ParserStateDebug(NULL, "Parse error\n");
@@ -76,7 +83,7 @@ int main(int argc, char** argv)
 	labelstate->name = "label";
 
 
-	ParserStateTransition* labelstateend = new ParserStateBackUp(new ParserStateEmit(new ParserStateRet(errstate, &callstack), &mark, NULL, labelfactory, &tokenstack));
+	ParserStateTransition* labelstateend = new ParserStateAdvance(new ParserStateEmit(new ParserStateRet(errstate, &callstack), &mark, NULL, labelfactory, &tokenstack));
 	labelstateend->name = "label_end";
 
 	ParserStateChar* labelmidstate = new ParserStateChar(labelstateend, NULL);
@@ -97,9 +104,9 @@ int main(int argc, char** argv)
 	idmodifierstate->add('@', new ParserStateCall(labelstate, idmodifierstate, &callstack));
 	idmodifierstate->add(':', new ParserStateCall(labelstate, idmodifierstate, &callstack));
 	idmodifierstate->add('?', new ParserStateCall(labelstate, idmodifierstate, &callstack));
-	idmodifierstate->replace(errstate, new ParserStateBackUp(defaultstate));
+	idmodifierstate->replace(errstate, new ParserStateAdvance(defaultstate));
 
-	ParserStateCall* idstate = new ParserStateCall(labelstate, idmodifierstate, &callstack);
+	ParserStateCall* idstate = new ParserStateCall(new ParserStateAdvance(labelstate), idmodifierstate, &callstack);
 	idstate->name = "idstate";
 
 
@@ -120,6 +127,7 @@ int main(int argc, char** argv)
 	quotebodystate->add('"', new ParserStateEmit(new ParserStateRet(errstate, &callstack), &mark, NULL, quotefactory, &tokenstack));
 
 	quotebodystate->replace(NULL, quotebodystate);
+	quotebodystate->defaultstate = quotebodystate;
 
 	ParserStateMark* quotestate = new ParserStateMark(quotebodystate, &mark);
 
@@ -154,8 +162,8 @@ int main(int argc, char** argv)
 
 	if (argc <= 1)
 	{
-		std::cout << "Usage: parsertest file\n";
-		return -1;
+		graphviz_gen(std::cout, newline);
+		return 0;
 	}
 
 	std::cout << "Parsing " << argv[1] << "\n";

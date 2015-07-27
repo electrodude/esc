@@ -1,14 +1,67 @@
 #include "parser.hpp"
 
-std::string st2s(const ParserState* st)
+int graphviz_cgen = 0;      // the current graphviz generation number
+int lastid = 0;
+
+std::ostream& graphviz_gen(std::ostream& out, ParserState* root)
 {
-	std::stringstream out;
+	graphviz_cgen++;
+
+	out << "digraph statemachine {\n";
+
+	root->graphviz_append(out);
+	
+	out << "}\n";
+
+	return out;
+}
+
+inline std::string c2s(char c)
+{
+	std::stringstream ss;
+	ss << "'";
+	switch (c)
+	{
+		case '\n': ss << "\\\\n"; break;
+		case '\r': ss << "\\\\r"; break;
+		case '\t': ss << "\\\\t"; break;
+		case '"' : ss << "\\" ; break;
+		default  :
+		{
+			if (c >= 32 && c < 127)
+			{
+				ss << c;
+			}
+			else
+			{
+				ss << '?';
+			}
+			break;
+		}
+	}
+
+	ss << "'(" << ((unsigned int)(c) & 255) << ")";
+
+	return ss.str();
+}
+
+std::ostream& st2s_ss(std::ostream& out, const ParserState* st)
+{
 	out << "(" << st << ")";
 
 	if (st != NULL && st->name != "")
 	{
 		out << "[" << st->name << "]";
 	}
+
+	return out;
+}
+
+std::string st2s(const ParserState* st)
+{
+	std::stringstream out;
+
+	st2s_ss(out, st);
 
 	return out.str();
 }
@@ -24,11 +77,64 @@ Token* TokenFactory::factory_new(std::string::iterator start, std::string::itera
 }
 
 
+Operator::Operator(std::string::iterator start, std::string::iterator end, Parser* parser)
+{
+	tok = std::string(start, end);
+}
+
+Operator* OperatorFactory::factory_new(std::string::iterator start, std::string::iterator end, Parser* parser)
+{
+	return new Operator(start, end, parser);
+}
+
+ParserState::ParserState()
+{
+	graphviz_gen = graphviz_cgen;
+
+	id = lastid++;
+}
+
+std::ostream& ParserState::graphviz_append(std::ostream& out)
+{
+	if (graphviz_gen == graphviz_cgen)
+	{
+		return out;
+	}
+	graphviz_gen = graphviz_cgen;
+
+	out << '\t' << this->id << " [label = \"";
+	st2s_ss(out, this);
+	out << "\"];\n";
+
+	return out;
+}
+
 ParserState* ParserStateTransition::next(Parser* parser)
 {
 	std::cout << "transition" << st2s(this) << "\n";
 
 	return nextstate;
+}
+
+std::ostream& ParserStateTransition::graphviz_append(std::ostream& out)
+{
+	if (graphviz_gen == graphviz_cgen)
+	{
+		return out;
+	}
+	graphviz_gen = graphviz_cgen;
+
+	out << '\t' << this->id << " [label = \"";
+	st2s_ss(out, this);
+	out << "\"];\n";
+
+	if (nextstate != NULL)
+	{
+		nextstate->graphviz_append(out);
+	}
+	
+
+	return out;
 }
 
 
@@ -39,18 +145,18 @@ ParserState* ParserStateDebug::next(Parser* parser)
 	return nextstate;
 }
 
-ParserState* ParserStateBackUp::next(Parser* parser)
+ParserState* ParserStateAdvance::next(Parser* parser)
 {
-	std::cout << "backup" << st2s(this) << "\n";
+	std::cout << "advance" << st2s(this) << "\n";
 
-	parser->curr -= distance;
+	parser->curr += distance;
 
 	return nextstate;
 }
 
 
 // Default constuctor, initializes everything to NULL (is this necessary?)
-ParserStateChar::ParserStateChar() : templatestate(this)
+ParserStateChar::ParserStateChar() : defaultstate(NULL), templatestate(this)
 {
 	std::cout << "char" << st2s(this) << " new" << st2s(this) << "\n";
 
@@ -61,7 +167,7 @@ ParserStateChar::ParserStateChar() : templatestate(this)
 }
 
 // Clone constructor.  Updates all self references, copies all others
-ParserStateChar::ParserStateChar(const ParserStateChar& original) : templatestate(original.templatestate)
+ParserStateChar::ParserStateChar(const ParserStateChar& original) : defaultstate(original.defaultstate), templatestate(original.templatestate)
 {
 	std::cout << "char" << st2s(this) << " clone" << st2s(&original) << "\n";
 
@@ -78,7 +184,7 @@ ParserStateChar::ParserStateChar(const ParserStateChar& original) : templatestat
 	}
 }
 
-ParserStateChar::ParserStateChar(ParserState* _defaultstate, ParserStateChar* _templatestate) : templatestate(_templatestate)
+ParserStateChar::ParserStateChar(ParserState* _defaultstate, ParserStateChar* _templatestate) : defaultstate(_defaultstate), templatestate(_templatestate)
 {
 	std::cout << "char" << st2s(this) << " basic " << _defaultstate << ", " << _templatestate << "\n";
 
@@ -120,6 +226,8 @@ void ParserStateChar::add(unsigned char first, unsigned char last, ParserState* 
 		transitions[curr] = nextstate;
 		//std::cout << curr << "\n";
 	}
+
+	transitions[last] = nextstate;
 }
 
 // replace occurences of one transition state with another
@@ -169,7 +277,7 @@ void ParserStateChar::add(std::string::iterator start, std::string::iterator end
 		else if (dynamic_cast<ParserStateChar*>(transitions[*start]) == NULL)
 		{
 			std::cout << "replace {";
-			transitions[*start] = new ParserStateChar(new ParserStateBackUp(transitions[*start]), templatestate);
+			transitions[*start] = new ParserStateChar(new ParserStateAdvance(transitions[*start]), templatestate);
 			consed = true;
 			std::cout << "}, ";
 		}
@@ -198,6 +306,53 @@ ParserState* ParserStateChar::next(Parser* parser)
 	return nextstate;
 }
 
+std::ostream& ParserStateChar::graphviz_append(std::ostream& out)
+{
+	if (graphviz_gen == graphviz_cgen)
+	{
+		return out;
+	}
+	graphviz_gen = graphviz_cgen;
+
+	out << '\t' << this->id << " [label = \"";
+
+	st2s_ss(out, this);
+
+	out << "\"];\n";
+	
+	int j=0;
+	ParserState* prev = transitions[0];
+	for (int i=0; i<255; i++)
+	{
+		ParserState* next = transitions[i];
+		
+		if (next != prev)
+		{
+			if (prev != NULL && prev->name != "error")
+			{
+				if (j != i-1)
+				{
+					out << "\t" << this->id << " -> " << prev->id << " [label = \"" << c2s(j) << " - " << c2s(i-1) << "\"];\n";
+				}
+				else
+				{
+					out << "\t" << this->id << " -> " << prev->id << " [label = \"" << c2s(j) << "\"];\n";
+				}
+			}
+		
+			j = i;
+			
+			prev = next;
+		}
+		
+		if (next != NULL)
+		{
+			next->graphviz_append(out);
+		}
+	}	
+
+	return out;
+}
 
 
 ParserState* ParserStateCall::next(Parser* parser)
@@ -246,6 +401,18 @@ ParserState* ParserStateEmit::next(Parser* parser)
 	return nextstate;
 }
 
+ParserState* ParserStateEmitOperator::next(Parser* parser)
+{
+	std::cout << "emit" << st2s(this) << "\n";
+
+	std::string::iterator enditer = endmark != NULL ? *endmark : parser->curr;
+
+	stack->push(tokenfactory->factory_new(*startmark, enditer, parser));
+
+	return nextstate;
+}
+
+
 
 Parser::Parser(ParserState* initial, std::string& code) : currState(initial), curr(code.begin()), end(code.end())
 {
@@ -258,7 +425,7 @@ void Parser::parse()
 
 	while (curr != end && currState != NULL)
 	{
-		std::cout << "current state: " << st2s(currState) << "; current char: " << c2s(*curr) << "; " << std::distance(curr,end) << " chars left\n";
+		//std::cout << "current state: " << st2s(currState) << "; current char: " << c2s(*curr) << "; " << std::distance(curr,end) << " chars left\n";
 		currState = currState->next(this);
 	}
 
