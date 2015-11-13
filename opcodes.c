@@ -141,7 +141,7 @@ mod_new("if_nz_or_nc",  "xxxxxx_xxxx_0111_xxxxxxxxx_xxxxxxxxx");
 
 mod_new("if_c_and_z",   "xxxxxx_xxxx_1000_xxxxxxxxx_xxxxxxxxx");
 mod_new("if_z_and_c",   "xxxxxx_xxxx_1000_xxxxxxxxx_xxxxxxxxx");
-   
+
 mod_new("if_c_eq_z",    "xxxxxx_xxxx_1001_xxxxxxxxx_xxxxxxxxx");
 mod_new("if_z_eq_c",    "xxxxxx_xxxx_1001_xxxxxxxxx_xxxxxxxxx");
 
