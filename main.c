@@ -17,21 +17,9 @@ typedef struct cogreg
 } cogreg;
 
 
-// opcode
+typedef struct opcode opcode;
+typedef struct line line;
 
-
-typedef struct instruction instruction;
-typedef struct symbol symbol;
-
-
-typedef void (*opcode_func)(symbol* op, instruction* instr);
-
-typedef struct opcode
-{
-	opcode_func func;
-	void* data;
-	const char* name;
-} opcode;
 
 
 // symbol
@@ -48,7 +36,7 @@ typedef struct symbol
 {
 	union
 	{
-		cogreg* reg;
+		line* line;
 		opcode* op;
 		//?? mod;
 	} data;
@@ -56,6 +44,37 @@ typedef struct symbol
 	symboltype type;
 	int defined;
 } symbol;
+
+// instruction
+
+typedef struct operand operand;
+
+typedef struct instruction
+{
+	operand* operands;
+
+	cogreg* reg;
+
+	//struct* instruction next;
+} instruction;
+
+// line
+
+typedef struct line
+{
+	operand* operand;
+} line;
+
+// opcode
+
+typedef void (*opcode_func)(symbol* op, instruction* instr);
+
+typedef struct opcode
+{
+	opcode_func func;
+	void* data;
+	const char* name;
+} opcode;
 
 // symbol table
 
@@ -68,13 +87,13 @@ typedef union symtabentry
 symtabentry symbols[256];
 
 
-symbol* getsymbol(const char* p)
+symbol* symbol_get(const char* p)
 {
 	const char* s2 = p;
 
 	symtabentry* symtab = symbols;
 
-	//printf("getsymbol(\"%s\"): ", p);
+	//printf("symbol_get(\"%s\"): ", p);
 	while (*p != 0)
 	{
 #if LIBDEBUG
@@ -108,9 +127,9 @@ symbol* getsymbol(const char* p)
 	return symtab[0].sym;
 }
 
-inline symbol* definesymbol(const char* s, enum symboltype type)
+inline symbol* symbol_define(const char* s, enum symboltype type)
 {
-	symbol* sym = getsymbol(s);
+	symbol* sym = symbol_get(s);
 
 	if (sym->defined)
 	{
@@ -126,20 +145,20 @@ inline symbol* definesymbol(const char* s, enum symboltype type)
 
 
 
-symbol* label_new(const char* s, cogreg* reg)
+symbol* label_new(const char* s, line* l)
 {
-	symbol* sym = definesymbol(s, SYM_LABEL);
+	symbol* sym = symbol_define(s, SYM_LABEL);
 
 	if (sym == NULL) return NULL;
 
-	sym->data.reg = reg;
+	sym->data.line = l;
 
 	return sym;
 }
 
 symbol* mod_new(const char* s, const char* bits)
 {
-	symbol* sym = definesymbol(s, SYM_MODIFIER);
+	symbol* sym = symbol_define(s, SYM_MODIFIER);
 
 	if (sym == NULL) return NULL;
 
@@ -156,7 +175,7 @@ symbol* mod_new(const char* s, const char* bits)
 
 symbol* opcode_new(const char* s, const char* bits)
 {
-	symbol* sym = definesymbol(s, SYM_OPCODE);
+	symbol* sym = symbol_define(s, SYM_OPCODE);
 
 	if (sym == NULL) return NULL;
 
@@ -177,7 +196,7 @@ typedef struct operand
 	{
 		plong val;
 		symbol* ident;
-		cogreg* reg;
+		line* line;
 		struct
 		{
 			struct operand* operands[2];
@@ -196,12 +215,12 @@ operand* int_new(plong x)
 	return this;
 }
 
-operand* ref_new(cogreg* reg)
+operand* ref_new(line* l)
 {
 	operand* this = malloc(sizeof(operand));
 
 	this->tp = REF;
-	this->val.reg = reg;
+	this->val.line = l;
 
 	return this;
 }
@@ -211,7 +230,7 @@ operand* ident_new(char* p)
 	operand* this = malloc(sizeof(operand));
 
 	this->tp = IDENT;
-	this->val.ident = getsymbol(p);
+	this->val.ident = symbol_get(p);
 
 	return this;
 }
@@ -315,27 +334,29 @@ void operand_print(operand* this)
 		{
 			symbol* sym = this->val.ident;
 
-			printf("(%s ", sym->name);
-
 			switch (sym->type)
 			{
 				case SYM_LABEL:
 				{
-					printf("%s", this->val.ident->data.reg->name);
+					printf("(label %s)", sym->name);
 					break;
 				}
 				case SYM_OPCODE:
 				{
-					printf("%s", this->val.ident->data.op->name);
+					printf("(opcode %s)", sym->name);
+					break;
+				}
+				case SYM_MODIFIER:
+				{
+					printf("(modifier %s)", sym->name);
 					break;
 				}
 				default:
 				{
-					printf("???");
+					printf("(??? %s)", sym->name);
 					break;
 				}
 			}
-			printf(")");
 			break;
 		}
 		case BINOP:
@@ -356,7 +377,8 @@ void operand_print(operand* this)
 		}
 		case REF:
 		{
-			printf("[%s]", this->val.reg->name);
+			//printf("[%s]", this->val.line->name);
+			printf("[line]");
 			break;
 		}
 		default:
@@ -402,26 +424,9 @@ void operand_kill(operand* this)
 	free(this);
 }
 
-// instruction
-
-typedef struct instruction
-{
-	opcode* opcode;
-
-	operand* operands;
-
-	cogreg* reg;
-} instruction;
-
 
 
 // stack
-
-typedef struct cons
-{
-	struct cons* next;
-	void* this;
-} cons;
 
 typedef struct stack
 {
@@ -514,12 +519,12 @@ int precedence(char op)
 {
 	switch (op)
 	{
-		case 'n' : return 6;
-		case '#' : return 6;
-		case '/' : return 5;
-		case '*' : return 4;
-		case '-' : return 3;
-		case '+' : return 2;
+		case 'n' : return 7;
+		case '/' : return 6;
+		case '*' : return 5;
+		case '-' : return 4;
+		case '+' : return 3;
+		case '#' : return 2;
 		case ',' : return 1;
 		case ' ' : return 0;
 		case '(' : return INT_MIN;
@@ -604,17 +609,11 @@ stack* parser(char* p)
 	printf("Line %d\n", lineno);
 #endif
 
-	char* lastgloballabel = NULL;
+	char* lastgloballabel = "!begin";
 
-	stack* instructions = stack_new();
+	stack* lines = stack_new();
 
-	instruction* currinstr = malloc(sizeof(instruction));
-
-	cogreg* currreg = malloc(sizeof(cogreg));
-
-	currinstr->reg = currreg;
-
-	opcode* isinstr = NULL;
+	line* currline = malloc(sizeof(line));
 
 	goto line;
 
@@ -630,23 +629,19 @@ newline:
 	printf("Line %d\n", lineno);
 #endif
 
-	if (isinstr != NULL)
+	if (stack_peek(vstack) != NULL)
 	{
-		currinstr->opcode = isinstr;
-		currinstr->operands = stack_pop(vstack);
+		currline->operand = stack_pop(vstack);
 
-		currreg->name = isinstr->name;
+#if 1
+		operand_print(currline->operand);
+		printf("\n");
+#endif
 
-		stack_push(instructions, currinstr);
+		stack_push(lines, currline);
 
-		currinstr = malloc(sizeof(instruction));
-
-		currreg = malloc(sizeof(cogreg));
-
-		currinstr->reg = currreg;
+		currline = malloc(sizeof(line));
 	}
-	
-	isinstr = NULL;
 
 	goto line;
 
@@ -666,9 +661,7 @@ line:
 		case '\t': p++; goto line;
 	}
 
-	if (islabelchar[*p] >= 2) goto label;
-
-	goto error;
+	goto expr_entry;
 
 comment:
 #if ASMDEBUG >= 2
@@ -683,74 +676,15 @@ comment:
 
 	p++; goto comment;
 
-label:
-	ts = p;
-label_l:
-#if ASMDEBUG >= 2
-	printf("label: %c\n", *p);
-#endif
-	switch (*p)
-	{
-		case 0   : goto error;
-	}
-	if (islabelchar[*p] >= 2) { p++; goto label_l; }
-
-	char* base = "";
-	if (*ts == ':')
-	{
-		base = lastgloballabel;
-	}
-
-	char* s = tok2stra(base, ts, p);
-
-	symbol* sym = getsymbol(s);
-	switch (sym->type)
-	{
-		case SYM_OPCODE:
-		{
-#if ASMDEBUG
-			printf("opcode: %s\n", s);
-#endif
-			isinstr = sym->data.op;
-
-			goto expr_entry;
-		}
-		case SYM_MODIFIER:
-		{
-			break;
-		}
-		case SYM_UNKNOWN:
-		{
-			if (sym->defined)
-			{
-				printf("duplicate label %s\n", s);
-				goto error;
-			}
-
-			label_new(s, currreg);
-
-			if (!*base)
-			{
-				lastgloballabel = s;
-			}
-#if ASMDEBUG
-			printf("label: %s\n", s);
-#endif
-			break;
-		}
-	}
-
-	goto line;
-
 expr_entry:
 #if ASMDEBUG
-	printf("opcode\n");
+	//printf("opcode\n");
 #endif
 	{
 		char* stray = (char*)stack_peek(ostack);
 		if (stray != NULL)
 		{
-			printf("Error at %d:%ld: stray operator: %c\n", lineno, p-linestart, *stray);
+			printf("Error at %d:%ld: stray operator on operator stack: %c\n", lineno, p-linestart, *stray);
 			exit(1);
 		}
 	}
@@ -758,7 +692,7 @@ expr_entry:
 		operand* stray = stack_peek(vstack);
 		if (stray != NULL)
 		{
-			printf("Error at %d:%ld: stray value: ", lineno, p-linestart);
+			printf("Error at %d:%ld: stray value on value stack: ", lineno, p-linestart);
 			operand_print(stray);
 			printf("\n");
 			exit(1);
@@ -833,7 +767,7 @@ num_l:
 
 	if ((*p >= '0' && *p <= '9') || *p == '_') { p++; goto num_l; }
 
-	s = tok2str(ts, p);
+	char* s = tok2str(ts, p);
 #if ASMDEBUG
 	printf("num: %s\n", s);
 #endif
@@ -854,11 +788,40 @@ ident_l:
 	}
 	if (islabelchar[*p] >= 2) { p++; goto ident_l; }
 
-	s = tok2stra(*ts == ':' ? lastgloballabel : "", ts, p);
+	char* base = "";
+
+	if (*ts == ':')
+	{
+		base = lastgloballabel;
+	}
+
+	s = tok2stra(base, ts, p);
+
 #if ASMDEBUG
 	printf("ident: %s\n", s);
 #endif
-	stack_push(vstack, ident_new(s));
+	operand* op = ident_new(s);
+
+	if (stack_peek(vstack) == NULL)
+	{
+		symbol* sym = op->val.ident;
+		if (sym->type == SYM_UNKNOWN)
+		{
+			if (*ts != ':')
+			{
+				lastgloballabel = s;
+			}
+
+			sym->type = SYM_LABEL;
+		}
+		else if (sym->type == SYM_LABEL)
+		{
+			printf("Duplicate symbol \"%s\"!\n", s);
+			exit(1);
+		}
+	}
+
+	stack_push(vstack, op);
 
 	goto operator;
 
@@ -885,7 +848,7 @@ here_or_hex:
 	p++;
 	if (isxdigit(*p)) goto hexnum;
 
-	stack_push(vstack, ref_new(currreg));
+	stack_push(vstack, ref_new(currline));
 	goto operator;
 
 operator:
@@ -917,18 +880,13 @@ operator:
 		case ')' : goto rparen;
 	}
 
-	if ((islabelchar[*p] >= 1) && (p[-1] == ' ' || p[-1] == '\t'))
-	{
-		fold(' ');
+	fold(' ');
 #if ASMDEBUG >= 2
-		printf("operator: whitespace\n");
+	printf("operator: whitespace\n");
 #endif
 
-		stack_push(ostack, " ");
-		goto expr;
-	}
-
-	goto error;
+	stack_push(ostack, " ");
+	goto expr;
 
 rparen:
 #if ASMDEBUG
@@ -951,18 +909,17 @@ error:
 
 end:	; // silly compile error without the ;
 
-	stack_push(instructions, currinstr);
+	stack_push(lines, currline);
 
-	for (int i=0; i < instructions->top; i++)
+	for (int i=0; i < lines->top; i++)
 	{
-		instruction* instr = instructions->base[i];
-		printf("(%s ", instr->opcode->name);
-		operand_print(instr->operands);
-		printf(")\n");
+		line* l = lines->base[i];
+		operand_print(l->operand);
+		printf("\n");
 
 	}
 
-	return instructions;
+	return lines;
 }
 
 

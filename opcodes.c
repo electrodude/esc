@@ -119,40 +119,46 @@ mod_new("if_never",     "xxxxxx_xxxx_0000_xxxxxxxxx_xxxxxxxxx");
 
 mod_new("if_nc_and_nz", "xxxxxx_xxxx_0001_xxxxxxxxx_xxxxxxxxx");
 mod_new("if_nz_and_nc", "xxxxxx_xxxx_0001_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_a        ", "xxxxxx_xxxx_0001_xxxxxxxxx_xxxxxxxxx");
 
 mod_new("if_nc_and_z",  "xxxxxx_xxxx_0010_xxxxxxxxx_xxxxxxxxx");
 mod_new("if_z_and_nc",  "xxxxxx_xxxx_0010_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_nc        ","xxxxxx_xxxx_0011_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_nc",        "xxxxxx_xxxx_0011_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_ae",        "xxxxxx_xxxx_0011_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_c_and_nz  ","xxxxxx_xxxx_0100_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_nz_and_c  ","xxxxxx_xxxx_0100_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_c_and_nz",  "xxxxxx_xxxx_0100_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_nz_and_c",  "xxxxxx_xxxx_0100_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_nz        ","xxxxxx_xxxx_0101_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_nz",        "xxxxxx_xxxx_0101_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_ne",        "xxxxxx_xxxx_0101_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_c_ne_z    ","xxxxxx_xxxx_0110_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_z_ne_c    ","xxxxxx_xxxx_0110_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_c_ne_z",    "xxxxxx_xxxx_0110_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_z_ne_c",    "xxxxxx_xxxx_0110_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_nc_or_nz  ","xxxxxx_xxxx_0111_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_nz_or_nc  ","xxxxxx_xxxx_0111_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_nc_or_nz",  "xxxxxx_xxxx_0111_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_nz_or_nc",  "xxxxxx_xxxx_0111_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_c_and_z   ","xxxxxx_xxxx_1000_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_z_and_c   ","xxxxxx_xxxx_1000_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_c_and_z",   "xxxxxx_xxxx_1000_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_z_and_c",   "xxxxxx_xxxx_1000_xxxxxxxxx_xxxxxxxxx");
+   
+mod_new("if_c_eq_z",    "xxxxxx_xxxx_1001_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_z_eq_c",    "xxxxxx_xxxx_1001_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_c_eq_z    ","xxxxxx_xxxx_1001_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_z_eq_c    ","xxxxxx_xxxx_1001_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_z",         "xxxxxx_xxxx_1010_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_e",         "xxxxxx_xxxx_1010_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_z         ","xxxxxx_xxxx_1010_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_z_or_nc",   "xxxxxx_xxxx_1011_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_nc_or_z",   "xxxxxx_xxxx_1011_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_z_or_nc   ","xxxxxx_xxxx_1011_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_nc_or_z   ","xxxxxx_xxxx_1011_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_c",         "xxxxxx_xxxx_1100_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_b",         "xxxxxx_xxxx_1100_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_c         ","xxxxxx_xxxx_1100_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_c_or_nz",   "xxxxxx_xxxx_1101_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_nz_or_c",   "xxxxxx_xxxx_1101_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_c_or_nz   ","xxxxxx_xxxx_1101_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_nz_or_c   ","xxxxxx_xxxx_1101_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_c_or_z",    "xxxxxx_xxxx_1110_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_z_or_c",    "xxxxxx_xxxx_1110_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_be",        "xxxxxx_xxxx_1110_xxxxxxxxx_xxxxxxxxx");
 
-mod_new("if_c_or_z    ","xxxxxx_xxxx_1110_xxxxxxxxx_xxxxxxxxx");
-mod_new("if_z_or_c    ","xxxxxx_xxxx_1110_xxxxxxxxx_xxxxxxxxx");
-
-mod_new("if_always    ","xxxxxx_xxxx_1111_xxxxxxxxx_xxxxxxxxx");
+mod_new("if_always",    "xxxxxx_xxxx_1111_xxxxxxxxx_xxxxxxxxx");
