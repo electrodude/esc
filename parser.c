@@ -359,7 +359,7 @@ ident_l:
 #if PARSERDEBUG
 	printf("ident: %s\n", s);
 #endif
-	operand* op = ident_new(s);
+	operand* op = ident_new(&s);
 
 	if (stack_peek(vstack) == NULL)
 	{

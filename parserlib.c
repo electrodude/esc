@@ -168,12 +168,23 @@ operand* ref_new(line* l)
 	return this;
 }
 
-operand* ident_new(char* p)
+operand* ident_new(char** p)
 {
 	operand* this = malloc(sizeof(operand));
 
 	this->tp = IDENT;
-	this->val.ident = symbol_get(p);
+	this->val.ident = symbol_get(*p);
+
+	char* s = this->val.ident->name;
+
+	if (s != *p)
+	{
+		char* p_old = *p;
+
+		*p = s;
+
+		free(p_old);
+	}
 
 	return this;
 }

@@ -109,7 +109,7 @@ symbol* opcode_new(const char* s, const char* bits);
 
 operand* int_new(plong x);
 operand* ref_new(line* l);
-operand* ident_new(char* p);
+operand* ident_new(char** p);
 operand* binop_new(char op, operand* lhs, operand* rhs);
 
 void symbol_print(symbol* sym);
