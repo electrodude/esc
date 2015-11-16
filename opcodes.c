@@ -1,3 +1,10 @@
+block_new("con");
+block_new("obj");
+block_new("var");
+block_new("pub");
+block_new("pri");
+block_new("dat");
+
 opcode_new("org", "");
 opcode_new("res", "");
 opcode_new("fit", "");

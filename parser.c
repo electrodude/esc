@@ -136,7 +136,25 @@ stack* parser(char* p)
 
 	char* lastgloballabel = "!begin";
 
+	const char* currblock;
+
+	const char* datblockname;
+
+	{
+		symbol* conblock = symbol_get("con");
+
+		currblock = conblock->name;
+
+		symbol* datblock = symbol_get("dat");
+
+		datblockname = datblock->name;
+	}
+
+	stack* blocks = stack_new();
+
 	stack* lines = stack_new();
+
+	stack_push(blocks, lines);
 
 	line* currline = malloc(sizeof(line));
 
@@ -210,7 +228,7 @@ expr_entry:
 		if (stray != NULL)
 		{
 			printf("Error at %d:%ld: stray operator on operator stack: %c\n", lineno, p-linestart, *stray);
-			exit(1);
+			goto error;
 		}
 	}
 	{
@@ -220,7 +238,7 @@ expr_entry:
 			printf("Error at %d:%ld: stray value on value stack: ", lineno, p-linestart);
 			operand_print(stray);
 			printf("\n");
-			exit(1);
+			goto error;
 		}
 	}
 
@@ -361,22 +379,45 @@ ident_l:
 #endif
 	operand* op = ident_new(&s);
 
+	symbol* sym = op->val.ident;
+
 	if (stack_peek(vstack) == NULL)
 	{
-		symbol* sym = op->val.ident;
-		if (sym->type == SYM_UNKNOWN)
+		if (currblock == datblockname)
 		{
-			if (*ts != ':')
+			// DAT blocks have local labels, which we need to scope now
+			if (sym->type == SYM_UNKNOWN)
 			{
-				lastgloballabel = s;
-			}
+				if (*ts != ':')
+				{
+					lastgloballabel = s;
+				}
 
-			sym->type = SYM_LABEL;
+				sym->type = SYM_LABEL;
+			}
+			else if (sym->type == SYM_LABEL)
+			{
+				printf("Duplicate symbol \"%s\" at %d:%ld\n", s, lineno, p-linestart);
+				//goto error;
+			}
 		}
-		else if (sym->type == SYM_LABEL)
+
+		if (sym->type == SYM_BLOCK)
 		{
-			printf("Duplicate symbol \"%s\" at %d:%ld\n", s, lineno, p-linestart);
-			exit(1);
+			lines = stack_new();
+
+			stack_push(blocks, lines);
+		}
+	}
+	else
+	{
+		if (sym->type == SYM_BLOCK)
+		{
+			printf("Block not first token on line!\n");
+
+			currblock = s;
+
+			goto error;
 		}
 	}
 
@@ -456,7 +497,7 @@ rparen:
 	if (lp == NULL || *lp != '(')
 	{
 		printf("Error: unmatched right parentheses");
-		exit(1);
+		goto error;
 	}
 	p++;
 
@@ -464,21 +505,40 @@ rparen:
 
 error:
 	printf("Parse error at %d:%ld: %c (%02X)\n", lineno, p-linestart, *p, *p);
-	exit(1);
 
-end:	; // silly compile error without the ;
+#if 0
+	while (*p != 0 && *p != '\n' && *p != '\r') p++;
 
-	//stack_push(lines, currline);
-
-	for (int i=0; i < lines->top; i++)
+	while (vstack->top > 0)
 	{
-		line* l = lines->base[i];
-		operand_print(l->operand);
+		operand* o = stack_pop(vstack);
+		printf("dropping operand ");
+		operand_print(o);
 		printf("\n");
-
 	}
 
-	return lines;
+	while (ostack->top > 0)
+	{
+		char* o = stack_pop(ostack);
+		if (o != NULL)
+		{
+			printf("dropping operator '%c'\n", *o);
+		}
+		else
+		{
+			printf("dropping operator NULL\n");
+		}
+	}
+
+	printf("continuing on next line\n\n");
+
+	goto line;
+#endif
+
+
+end:
+
+	return blocks;
 }
 
 

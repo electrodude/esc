@@ -91,6 +91,11 @@ void symbol_print(symbol* sym)
 			printf("modifier");
 			break;
 		}
+		case SYM_BLOCK:
+		{
+			printf("block");
+			break;
+		}
 		default:
 		{
 			printf("???");
@@ -102,6 +107,15 @@ void symbol_print(symbol* sym)
 }
 
 
+
+symbol* block_new(const char* s)
+{
+	symbol* sym = symbol_define(s, SYM_BLOCK);
+
+	if (sym == NULL) return NULL;
+
+	return sym;
+}
 
 symbol* label_new(const char* s, line* l)
 {

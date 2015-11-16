@@ -35,5 +35,19 @@ int main(int argc, char** argv)
 		}
 	} while (n_read);
 	fclose(f);
-	stack/*of line*/* lines = parser(s);
+
+	stack/*of stack of line*/* blocks = parser(s);
+
+	for (int i=0; i < blocks->top; i++)
+	{
+		printf("\nblock ");
+		stack/* of line */* lines = blocks->base[i];
+		for (int j=0; j < lines->top; j++)
+		{
+			line* l = lines->base[j];
+			operand_print(l->operand);
+			printf("\n");
+
+		}
+	}
 }

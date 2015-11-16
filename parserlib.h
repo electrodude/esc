@@ -30,6 +30,7 @@ typedef enum symboltype
 	SYM_LABEL,
 	SYM_OPCODE,
 	SYM_MODIFIER,
+	SYM_BLOCK,
 } symboltype;
 
 typedef struct symbol
@@ -101,6 +102,7 @@ symbol* symbol_get(const char* p);
 symbol* symbol_define(const char* s, enum symboltype type);
 
 
+symbol* block_new(const char* s);
 symbol* label_new(const char* s, line* l);
 symbol* mod_new(const char* s, const char* bits);
 symbol* opcode_new(const char* s, const char* bits);
