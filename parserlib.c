@@ -28,7 +28,7 @@ symbol* symbol_get(const char* p)
 #if LIBDEBUG
 		putchar(*p);
 #endif
-		char c = tolower(*p);
+		unsigned char c = tolower(*p);
 
 		symtabentry* symtab2 = symtab[c].next;
 		if (symtab2 == NULL)
@@ -70,6 +70,35 @@ symbol* symbol_define(const char* s, enum symboltype type)
 	sym->type = type;
 
 	return sym;
+}
+
+void symbol_print(symbol* sym)
+{
+	switch (sym->type)
+	{
+		case SYM_LABEL:
+		{
+			printf("label");
+			break;
+		}
+		case SYM_OPCODE:
+		{
+			printf("opcode");
+			break;
+		}
+		case SYM_MODIFIER:
+		{
+			printf("modifier");
+			break;
+		}
+		default:
+		{
+			printf("???");
+			break;
+		}
+	}
+
+	printf(" %s", sym->name);
 }
 
 
@@ -241,36 +270,16 @@ void operand_print(operand* this)
 	{
 		case INT:
 		{
-			printf("%d", this->val.val);
+			printf("%u", this->val.val);
+
 			break;
 		}
 		case IDENT:
 		{
-			symbol* sym = this->val.ident;
+			printf("(");
+			symbol_print(this->val.ident);
+			printf(")");
 
-			switch (sym->type)
-			{
-				case SYM_LABEL:
-				{
-					printf("(label %s)", sym->name);
-					break;
-				}
-				case SYM_OPCODE:
-				{
-					printf("(opcode %s)", sym->name);
-					break;
-				}
-				case SYM_MODIFIER:
-				{
-					printf("(modifier %s)", sym->name);
-					break;
-				}
-				default:
-				{
-					printf("(??? %s)", sym->name);
-					break;
-				}
-			}
 			break;
 		}
 		case BINOP:
@@ -287,17 +296,20 @@ void operand_print(operand* this)
 				operand_print(this->val.binop.operands[1]);
 			}
 			printf(")");
+
 			break;
 		}
 		case REF:
 		{
 			//printf("[%s]", this->val.line->name);
 			printf("[line]");
+
 			break;
 		}
 		default:
 		{
 			printf("? type=%d ?", this->tp);
+
 			break;
 		}
 	}

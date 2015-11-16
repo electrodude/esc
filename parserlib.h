@@ -7,12 +7,14 @@ typedef uint16_t pcaddr;
 
 // cog register
 
+/*
 typedef struct cogreg
 {
 	pcaddr caddr;
 
 	const char* name;
 } cogreg;
+*/
 
 
 typedef struct opcode opcode;
@@ -47,6 +49,7 @@ typedef struct symbol
 
 typedef struct operand operand;
 
+/*
 typedef struct instruction
 {
 	operand* operands;
@@ -55,6 +58,7 @@ typedef struct instruction
 
 	//struct* instruction next;
 } instruction;
+*/
 
 // line
 
@@ -65,7 +69,7 @@ typedef struct line
 
 // opcode
 
-typedef void (*opcode_func)(symbol* op, instruction* instr);
+typedef void (*opcode_func)(symbol* op, line* l);
 
 typedef struct opcode
 {
@@ -94,9 +98,7 @@ typedef struct operand
 
 
 symbol* symbol_get(const char* p);
-
 symbol* symbol_define(const char* s, enum symboltype type);
-
 
 
 symbol* label_new(const char* s, line* l);
@@ -109,5 +111,7 @@ operand* int_new(plong x);
 operand* ref_new(line* l);
 operand* ident_new(char* p);
 operand* binop_new(char op, operand* lhs, operand* rhs);
+
+void symbol_print(symbol* sym);
 
 void operand_print(operand* this);

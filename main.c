@@ -35,5 +35,5 @@ int main(int argc, char** argv)
 		}
 	} while (n_read);
 	fclose(f);
-	parser(s);
+	stack/*of line*/* lines = parser(s);
 }

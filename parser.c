@@ -158,7 +158,7 @@ newline:
 	{
 		currline->operand = stack_pop(vstack);
 
-#if 1
+#if 0
 		operand_print(currline->operand);
 		printf("\n");
 #endif
@@ -293,10 +293,44 @@ num_l:
 	if ((*p >= '0' && *p <= '9') || *p == '_') { p++; goto num_l; }
 
 	char* s = tok2str(ts, p);
+
+	char* s2 = s;
 #if PARSERDEBUG
 	printf("num: %s\n", s);
 #endif
-	stack_push(vstack, int_new(atoi(s)));
+	plong n = 0;
+
+	// TODO: floats
+
+	while (*s2)
+	{
+		plong digit = 0;
+		if (*s2 >= '0' && *s2 <= '9')
+		{
+			digit = *s2 - '0';
+		}
+		else if (*s2 >= 'A' && *s2 <= 'Z')
+		{
+			digit = *s2 + 10 - 'A';
+		}
+		else if (*s2 >= 'a' && *s2 <= 'z')
+		{
+			digit = *s2 + 10 - 'z';
+		}
+		else if (*s2 == '_')
+		{
+			// eat underscores
+		}
+		else
+		{
+			printf("Invalid digit for base %d: %s\n", nbase, s);
+		}
+
+		n = n * nbase + digit;
+		s2++;
+	}
+
+	stack_push(vstack, int_new(n));
 	free(s);
 
 	goto operator;
@@ -341,7 +375,7 @@ ident_l:
 		}
 		else if (sym->type == SYM_LABEL)
 		{
-			printf("Duplicate symbol \"%s\"!\n", s);
+			printf("Duplicate symbol \"%s\" at %d:%ld\n", s, lineno, p-linestart);
 			exit(1);
 		}
 	}
@@ -434,7 +468,7 @@ error:
 
 end:	; // silly compile error without the ;
 
-	stack_push(lines, currline);
+	//stack_push(lines, currline);
 
 	for (int i=0; i < lines->top; i++)
 	{

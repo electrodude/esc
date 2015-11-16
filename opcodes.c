@@ -162,3 +162,10 @@ mod_new("if_z_or_c",    "xxxxxx_xxxx_1110_xxxxxxxxx_xxxxxxxxx");
 mod_new("if_be",        "xxxxxx_xxxx_1110_xxxxxxxxx_xxxxxxxxx");
 
 mod_new("if_always",    "xxxxxx_xxxx_1111_xxxxxxxxx_xxxxxxxxx");
+
+mod_new("wz", "");
+mod_new("nz", "");
+mod_new("wc", "");
+mod_new("nc", "");
+mod_new("wr", "");
+mod_new("nr", "");
