@@ -1,6 +1,9 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "stack.h"
+
+#define LIBDEBUG 0
 
 stack* stack_new()
 {
@@ -15,8 +18,6 @@ stack* stack_new()
 
 void stack_push(stack* this, void* v)
 {
-	this->top++;
-
 	if (this->top >= this->len)
 	{
 		this->len *= 2;
@@ -26,7 +27,11 @@ void stack_push(stack* this, void* v)
 #endif
 	}
 
-	this->base[this->top] = v;
+#if LIBDEBUG >= 2
+	printf("push: (%p)[%u] = %p\n", this, this->top, v);
+#endif
+
+	this->base[this->top++] = v;
 }
 
 void* stack_pop(stack* this)
@@ -36,7 +41,11 @@ void* stack_pop(stack* this)
 		return NULL;
 	}
 
-	return this->base[this->top--];
+#if LIBDEBUG >= 2
+	printf("pop: (%p)[%u] = %p\n", this, this->top-1, this->base[this->top-1]);
+#endif
+
+	return this->base[--this->top];
 }
 
 void* stack_peek(stack* this)
@@ -46,5 +55,5 @@ void* stack_peek(stack* this)
 		return NULL;
 	}
 
-	return this->base[this->top];
+	return this->base[this->top-1];
 }
