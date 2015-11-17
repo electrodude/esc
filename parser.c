@@ -10,6 +10,7 @@
 #define PARSERDEBUG 0
 
 
+
 static stack* vstack;
 
 static stack* ostack;
@@ -40,48 +41,145 @@ static char* tok2str(char* start, char* end)
 	return s;
 }
 
-static int precedence(char op)
+static void printstacks(void)
 {
-	switch (op)
+	printf("vstack: ");
+	for (int i=0; i < vstack->top; i++)
 	{
-		case 'n' : return 7;
-		case '/' : return 6;
-		case '*' : return 5;
-		case '-' : return 4;
-		case '+' : return 3;
-		case '#' : return 2;
-		case ',' : return 1;
-		case ' ' : return 0;
-		case '(' : return INT_MIN;
-		case ')' : return INT_MIN;
-		default  : return INT_MIN;
+		operand* val = vstack->base[i];
+
+		operand_print(val);
+
+		printf("\t");
 	}
+	printf("\n");
+	printf("ostack: ");
+	for (int i=0; i < ostack->top; i++)
+	{
+		operator* op = ostack->base[i];
+
+		printf("\"%s\" ", op->name);
+	}
+	printf("\n");
 }
 
-static void fold(char nextop)
+static void fold(operator* nextop)
 {
 #if PARSERDEBUG
-	printf("fold: nextop = %c (0x%x)\n", nextop, nextop);
-#endif
-
-	char topop;
-
-	while (stack_peek(ostack) != NULL && precedence(nextop) < precedence(topop = *(char*)stack_peek(ostack)))
+	if (nextop != NULL)
 	{
-		char op = *(char*)stack_pop(ostack);
-#if PARSERDEBUG
-		printf("fold: op %c (0x%x)\n", op, op);
+		printf("fold: nextop = \"%s\" (%d%d%d)\n", nextop->name, nextop->leftarg, nextop->rightarg, nextop->bracket);
+	}
+	else
+	{
+		printf("fold: nextop = NULL\n");
+	}
 #endif
-		operand* rhs = (op != 'n' && op != '#') ? stack_pop(vstack) : NULL;
-		operand* lhs = stack_pop(vstack);
-		stack_push(vstack, binop_new(op, lhs, rhs));
+
+	if (nextop != NULL && nextop->bracket && !nextop->leftarg)
+	{
+		// don't fold if left bracket
+
+#if PARERDEBUG
+		printf("fold: left bracket, no fold\n");
+#endif
+
+		stack_push(ostack, nextop);
+
+#if PARSERDEBUG >= 2
+		printstacks();
+#endif
+
+		return;
 	}
 
-	if (nextop == 0 && stack_peek(ostack) != NULL && *(char*)stack_peek(ostack) == '(')
+	operator* topop;
+
+	int bracket = nextop != NULL ? nextop->bracket : 0;
+
+	while (topop = stack_peek(ostack), topop != NULL && (nextop == NULL || nextop->precedence >= topop->precedence) && ((nextop != NULL && topop->bracket == nextop->bracket) || !topop->bracket))
+	{
+		operator* op = stack_pop(ostack);
+#if PARSERDEBUG
+		printf("fold: op \"%s\" (%d%d%d)\n", op->name, op->leftarg, op->rightarg, op->bracket);
+#endif
+
+		if (op != NULL && op->bracket && op->rightarg && !op->leftarg)
+		{
+#if PARERDEBUG
+			printf("fold bracket break\n");
+#endif
+			bracket = 0;
+			break;
+		}
+
+		operand* rhs = NULL;
+		if (op->rightarg)
+		{
+			rhs = stack_pop(vstack);
+			if (rhs == NULL)
+			{
+				printf("Error: rhs of '%s' (%d%d%d) == NULL!\n", op->name, op->leftarg, op->rightarg, op->bracket);
+				exit(1);
+			}
+		}
+
+		operand* lhs = NULL;
+		if (op->leftarg)
+		{
+			lhs = stack_pop(vstack);
+			if (lhs == NULL)
+			{
+				printf("Error: lhs of '%s' (%d%d%d) == NULL!\n", op->name, op->leftarg, op->rightarg, op->bracket);
+				exit(1);
+			}
+		}
+
+		stack_push(vstack, binop_new(op, lhs, rhs));
+
+		if (op != NULL && op->bracket && op->rightarg)
+		{
+#if PARERDEBUG
+			printf("fold function break\n");
+#endif
+			bracket = 0;
+			break;
+		}
+	}
+
+	operator* tos = stack_peek(ostack);
+
+	if (nextop == NULL && tos != NULL && (tos->bracket && tos->rightarg))
 	{
 		printf("Error: unmatched left parentheses\n");
 		exit(1);
 	}
+
+	if (nextop != NULL && bracket && nextop->leftarg && !nextop->rightarg)
+	{
+		if (tos == NULL)
+		{
+			printf("Error: unmatched right parentheses! nextop = \"%s\" (%d%d%d), tos = ", nextop->name, nextop->leftarg, nextop->rightarg, nextop->bracket);
+			if (tos != NULL)
+			{
+				printf("\"%s\" (%d%d%d)\n", tos->name, tos->leftarg, tos->rightarg, tos->bracket);
+			}
+			else
+			{
+				printf("NULL\n");
+			}
+			exit(1);
+		}
+	}
+
+	if (nextop != NULL && !(nextop->bracket && !nextop->rightarg))
+	{
+		stack_push(ostack, nextop);
+	}
+
+#if PARSERDEBUG >= 2
+	printstacks();
+#endif
 }
 
 static unsigned int lineno = 0;
@@ -119,11 +217,9 @@ static char islabelchar[256];
 
 stack* parser(char* p)
 {
-	char* ps = p;
-
 	char* ts = p;
 
-	//char* s;
+	optabentry* currop;
 
 	int pc = 5;
 
@@ -136,19 +232,11 @@ stack* parser(char* p)
 
 	char* lastgloballabel = "!begin";
 
-	const char* currblock;
 
-	const char* datblockname;
+	const char* currblock = symbol_get("con")->name;
 
-	{
-		symbol* conblock = symbol_get("con");
+	const char* datblockname = symbol_get("dat")->name;
 
-		currblock = conblock->name;
-
-		symbol* datblock = symbol_get("dat");
-
-		datblockname = datblock->name;
-	}
 
 	stack* blocks = stack_new();
 
@@ -176,7 +264,7 @@ newline:
 	{
 		currline->operand = stack_pop(vstack);
 
-#if 0
+#if PARSERDEBUG >= 2
 		operand_print(currline->operand);
 		printf("\n");
 #endif
@@ -189,9 +277,9 @@ newline:
 	goto line;
 
 line:
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	//printf("line\n", *p);
-	printf("line: %c\n", *p);
+	printf("line: '%c'\n", *p);
 #endif
 	switch (*p)
 	{
@@ -207,8 +295,8 @@ line:
 	goto expr_entry;
 
 comment:
-#if PARSERDEBUG >= 2
-	printf("comment: %c\n", *p);
+#if PARSERDEBUG >= 3
+	printf("comment: '%c'\n", *p);
 #endif
 	switch (*p)
 	{
@@ -224,10 +312,10 @@ expr_entry:
 	//printf("opcode\n");
 #endif
 	{
-		char* stray = (char*)stack_peek(ostack);
+		operator* stray = stack_peek(ostack);
 		if (stray != NULL)
 		{
-			printf("Error at %d:%ld: stray operator on operator stack: %c\n", lineno, p-linestart, *stray);
+			printf("Error at %d:%ld: stray operator on operator stack: %s\n", lineno, p-linestart, stray->name);
 			goto error;
 		}
 	}
@@ -244,20 +332,20 @@ expr_entry:
 
 expr:
 #if PARSERDEBUG >= 2
-	printf("expr: %c\n", *p);
+	printf("expr: '%c'\n", *p);
 #endif
+	currop = preoperators;
+
 	switch (*p)
 	{
 		case 0   : goto end;
 		case ' ' :
 		case '\t': p++; goto expr;
-		case '$' : goto here_or_hex;
-		case '-' : goto unm;
-		case '#' : goto indirect;
-		case '(' : goto lparen;
-		case '%' : p++; goto binnum;
 		case '{' : eatblockcomment(&p); goto expr;
+		case '"' : goto string;
 	}
+
+	currop = currop[tolower(*p)].next;
 
 	if (*p >= '0' && *p <= '9') goto decnum;
 	if (islabelchar[*p] >= 3) goto ident;
@@ -267,19 +355,172 @@ expr:
 		goto newline;
 	}
 
+
+	if (currop != NULL)
+	{
+		p++;
+
+		while (*p && currop[tolower(*p)].next != NULL)
+		{
+#if PARSERDEBUG >= 3
+			printf("prefix operator char: '%c'\n", *p);
+#endif
+			currop = currop[tolower(*p)].next;
+
+			p++;
+		}
+
+		operator* op = currop[0].op;
+
+		if (op == NULL)
+		{
+			goto error;
+		}
+
+
+#if PARSERDEBUG >= 2
+		printf("prefix op operator: \"%s\"\n", op->name);
+#endif
+		fold(op);
+
+		goto expr;
+	}
+
 	goto error;
 
-lparen:
-#if PARSERDEBUG
-	printf("lparen: %c\n", *p);
+ident:
+	ts = p;
+
+	while (*p && (islabelchar[*p] >= 2 || currop != NULL))
+	{
+#if PARSERDEBUG >= 3
+		printf("ident: '%c'\n", *p);
 #endif
-	stack_push(ostack, "(");
+
+		if (currop != NULL)
+		{
+			currop = currop[tolower(*p)].next;
+		}
+
+		p++;
+	}
+
+	if (currop != NULL && currop[0].op != NULL)
+	{
+		operator* op = currop[0].op;
+
+#if PARSERDEBUG >= 2
+		printf("prefix ident operator: \"%s\"\n", op->name);
+#endif
+		fold(op);
+
+		goto expr;
+	}
+
+	char* base = "";
+
+	if (*ts == ':')
+	{
+		base = lastgloballabel;
+	}
+
+	char* s = tok2stra(base, ts, p);
+
+#if PARSERDEBUG
+	printf("ident: \"%s\"\n", s);
+#endif
+	operand* val = ident_new(&s);
+
+	symbol* sym = val->val.ident;
+
+	int push = 1;
+
+	if (stack_peek(vstack) == NULL)
+	{
+		if (currblock == datblockname)
+		{
+			// DAT blocks have local labels, which we need to scope now
+			if (sym->type == SYM_UNKNOWN)
+			{
+				if (*s != ':' && *s != '.')
+				{
+					lastgloballabel = s;
+				}
+
+				sym->type = SYM_LABEL;
+			}
+			else if (sym->type == SYM_LABEL)
+			{
+				printf("Duplicate symbol \"%s\" at %d:%ld\n", s, lineno, p-linestart);
+				//goto error;
+			}
+		}
+
+		if (sym->type == SYM_BLOCK)
+		{
+#if PARSERDEBUG
+			printf("\nBlock \"%s\"\n", s);
+#endif
+
+			lines = stack_new();
+
+			stack_push(blocks, lines);
+
+			currblock = s;
+
+			symbols = sym->data.block->symbols;
+			operators = sym->data.block->operators;
+			preoperators = sym->data.block->preoperators;
+
+			push = 0;
+		}
+	}
+	else
+	{
+		if (sym->type == SYM_BLOCK)
+		{
+			printf("Warning: block name not first token on line!\n");
+
+			goto error;
+		}
+	}
+
+	if (push)
+	{
+		stack_push(vstack, val);
+
+		goto operator;
+	}
+	else
+	{
+		goto line;
+	}
+
+
+string:
+	ts = p;
+
+string_mid:
+#if PARSERDEBUG >= 2
+	printf("string: '%c'\n", *p);
+#endif
+
+	switch (*p)
+	{
+		case 0   : goto error;
+		case '"' : break;
+		default  : p++; goto string_mid;
+	}
+
+	stack_push(vstack, string_new(tok2str(ts, p)));
 	p++;
 
-	goto expr;
+
+	goto operator;
+
+
 
 	int nbase;
-
 decnum:
 	nbase = 10;
 	goto num;
@@ -299,151 +540,59 @@ binnum:
 	}
 num:
 	ts = p;
-num_l:
-#if PARSERDEBUG >= 2
-	printf("num: %c\n", *p);
-#endif
-	switch (*p)
-	{
-		case 0   : goto error;
-	}
 
-	if ((*p >= '0' && *p <= '9') || *p == '_') { p++; goto num_l; }
-
-	char* s = tok2str(ts, p);
-
-	char* s2 = s;
-#if PARSERDEBUG
-	printf("num: %s\n", s);
-#endif
 	plong n = 0;
-
-	// TODO: floats
-
-	while (*s2)
-	{
-		plong digit = 0;
-		if (*s2 >= '0' && *s2 <= '9')
-		{
-			digit = *s2 - '0';
-		}
-		else if (*s2 >= 'A' && *s2 <= 'Z')
-		{
-			digit = *s2 + 10 - 'A';
-		}
-		else if (*s2 >= 'a' && *s2 <= 'z')
-		{
-			digit = *s2 + 10 - 'z';
-		}
-		else if (*s2 == '_')
-		{
-			// eat underscores
-		}
-		else
-		{
-			printf("Invalid digit for base %d: %s\n", nbase, s);
-		}
-
-		n = n * nbase + digit;
-		s2++;
-	}
-
-	stack_push(vstack, int_new(n));
-	free(s);
-
-	goto operator;
-
-ident:
-	ts = p;
-ident_l:
-#if PARSERDEBUG >= 2
-	printf("ident: %c\n", *p);
+num_l:
+#if PARSERDEBUG >= 3
+	printf("num: '%c'\n", *p);
 #endif
 	switch (*p)
 	{
 		case 0   : goto error;
 	}
-	if (islabelchar[*p] >= 2) { p++; goto ident_l; }
 
-	char* base = "";
-
-	if (*ts == ':')
+	plong digit = 0;
+	if (*p >= '0' && *p <= '9')
 	{
-		base = lastgloballabel;
+		digit = *p - '0';
 	}
-
-	s = tok2stra(base, ts, p);
-
-#if PARSERDEBUG
-	printf("ident: %s\n", s);
-#endif
-	operand* op = ident_new(&s);
-
-	symbol* sym = op->val.ident;
-
-	if (stack_peek(vstack) == NULL)
+	else if (*p >= 'A' && *p <= 'Z')
 	{
-		if (currblock == datblockname)
-		{
-			// DAT blocks have local labels, which we need to scope now
-			if (sym->type == SYM_UNKNOWN)
-			{
-				if (*ts != ':')
-				{
-					lastgloballabel = s;
-				}
+		digit = *p + 10 - 'A';
+	}
+	else if (*p >= 'a' && *p <= 'z')
+	{
+		digit = *p + 10 - 'z';
+	}
+	else if (*p == '_')
+	{
+		// eat underscores
+	}
+	else if (*p == '.')
+	{
+		// TODO: floats
 
-				sym->type = SYM_LABEL;
-			}
-			else if (sym->type == SYM_LABEL)
-			{
-				printf("Duplicate symbol \"%s\" at %d:%ld\n", s, lineno, p-linestart);
-				//goto error;
-			}
-		}
-
-		if (sym->type == SYM_BLOCK)
-		{
-			lines = stack_new();
-
-			stack_push(blocks, lines);
-		}
+		printf("Can't do floats yet!\n");
 	}
 	else
 	{
-		if (sym->type == SYM_BLOCK)
-		{
-			printf("Block not first token on line!\n");
-
-			currblock = s;
-
-			goto error;
-		}
+		goto num_done;
 	}
 
-	stack_push(vstack, op);
+	n = n * nbase + digit;
+	p++;
+
+	goto num_l;
+
+num_done:
+
+	stack_push(vstack, int_new(n));
 
 	goto operator;
 
-unm:
-#if PARSERDEBUG
-	printf("unm: %c\n", *p);
-#endif
-	stack_push(ostack, "n");
-	p++;
-	goto expr;
-
-indirect:
-#if PARSERDEBUG
-	printf("indirect: %c\n", *p);
-#endif
-	stack_push(ostack, "#");
-	p++;
-	goto expr;
-
 here_or_hex:
 #if PARSERDEBUG
-	printf("here or hex: %c\n", *p);
+	printf("here or hex: '%c'\n", *p);
 #endif
 	p++;
 	if (isxdigit(*p)) goto hexnum;
@@ -452,59 +601,69 @@ here_or_hex:
 	goto operator;
 
 operator:
-#if PARSERDEBUG >= 2
-	printf("operator: %c\n", *p);
+	currop = operators;
+
+#if PARSERDEBUG >= 3
+	printf("operator char: '%c'\n", *p);
 #endif
 	switch (*p)
 	{
-		case 0   : goto error;
+		case 0   : goto end;
 		case ' ' :
 		case '\t': p++; goto operator;
 		case '\n':
-		case '\r': fold(0); p++; goto newline;
-		case '\'': fold(0); p++; goto comment;
+		case '\r': fold(NULL); p++; goto newline;
+		case '\'': fold(NULL); p++; goto comment;
 		case '{' : eatblockcomment(&p); goto operator;
-		case ',' :
-		case '+' :
-		case '-' :
-		case '*' :
-		case '/' :
-		{
-			fold(*p);
-#if PARSERDEBUG
-			printf("operator: %c\n", *p);
-#endif
-			stack_push(ostack, p);
-			p++; goto expr;
-		}
-		case ')' : goto rparen;
 	}
 
-	fold(' ');
-#if PARSERDEBUG >= 2
-	printf("operator: whitespace\n");
-#endif
+	ts = p;
 
-	stack_push(ostack, " ");
-	goto expr;
+operator_mid:
 
-rparen:
-#if PARSERDEBUG
-	printf("rparen: %c\n", *p);
-#endif
-	fold(')');
-	char* lp = (char*)stack_pop(ostack);
-	if (lp == NULL || *lp != '(')
+	while (*p && currop[tolower(*p)].next != NULL)
 	{
-		printf("Error: unmatched right parentheses");
-		goto error;
-	}
-	p++;
+#if PARSERDEBUG >= 3
+		printf("operator char: '%c'\n", *p);
+#endif
+		currop = currop[tolower(*p)].next;
 
-	goto operator;
+		p++;
+	}
+
+	operator* op = currop[0].op;
+
+	if (op == NULL)
+	{
+		fold(operators[0].op);
+		p = ts; // backtracking! Blech!
+		goto ident;
+	}
+
+
+#if PARSERDEBUG >= 2
+	printf("operator: \"%s\"\n", op->name);
+#endif
+
+	if (!op->leftarg)
+	{
+		fold(operators[0].op);
+	}
+
+	fold(op);
+
+	if (op->rightarg)
+	{
+		goto expr;
+	}
+	else
+	{
+		goto operator;
+	}
+
 
 error:
-	printf("Parse error at %d:%ld: %c (%02X)\n", lineno, p-linestart, *p, *p);
+	printf("Parse error at %d:%ld: '%c' (%02X)\n", lineno, p-linestart, *p, *p);
 
 #if 0
 	while (*p != 0 && *p != '\n' && *p != '\r') p++;
@@ -519,10 +678,10 @@ error:
 
 	while (ostack->top > 0)
 	{
-		char* o = stack_pop(ostack);
+		operator* o = stack_pop(ostack);
 		if (o != NULL)
 		{
-			printf("dropping operator '%c'\n", *o);
+			printf("dropping operator '%s'\n", o->name);
 		}
 		else
 		{
@@ -552,19 +711,19 @@ static inline void islabelchar_r(size_t start, size_t end, char c)
 
 void parser_init(void)
 {
-	islabelchar_r(0, 255,     0);
-	islabelchar       ['$'] = 1;
-	islabelchar       ['%'] = 1;
-	islabelchar       ['-'] = 1;
-	islabelchar       ['#'] = 1;
-	islabelchar       ['('] = 1;
+	islabelchar_r(0,   127,   0);
 	islabelchar_r('A', 'Z',   3);
 	islabelchar_r('a', 'z',   3);
 	islabelchar       ['_'] = 3;
 	islabelchar       [':'] = 3;
 	islabelchar       ['.'] = 3;
 	islabelchar_r('0', '9',   2);
+	islabelchar_r(128, 255,   2); // UTF-8 support
 
 	vstack = stack_new();
 	ostack = stack_new();
+
+	symbols = malloc(sizeof(symtabentry)*256);
+	operators = malloc(sizeof(optabentry)*256);
+	preoperators = malloc(sizeof(optabentry)*256);
 }

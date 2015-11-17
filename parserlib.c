@@ -4,28 +4,27 @@
 
 #include "parserlib.h"
 
+#define LIBDEBUG 0
+
 
 // symbol table
 
-typedef union symtabentry
+symtabentry* symbols;
+
+optabentry* operators;
+optabentry* preoperators;
+
+
+symbol* symbol_get(char* p)
 {
-	union symtabentry* next; // pointer to array of 256 symtabentries
-	symbol* sym;
-} symtabentry;
-
-static symtabentry symbols[256];
-
-
-symbol* symbol_get(const char* p)
-{
-	const char* s2 = p;
+	char* s2 = p;
 
 	symtabentry* symtab = symbols;
 
 	//printf("symbol_get(\"%s\"): ", p);
 	while (*p != 0)
 	{
-#if LIBDEBUG
+#if LIBDEBUG >= 2
 		putchar(*p);
 #endif
 		unsigned char c = tolower(*p);
@@ -38,7 +37,7 @@ symbol* symbol_get(const char* p)
 		symtab = symtab2;
 		p++;
 	}
-#if LIBDEBUG
+#if LIBDEBUG >= 2
 	putchar('\n');
 #endif
 	if (symtab[0].sym == NULL)
@@ -56,7 +55,7 @@ symbol* symbol_get(const char* p)
 	return symtab[0].sym;
 }
 
-symbol* symbol_define(const char* s, enum symboltype type)
+symbol* symbol_define(char* s, symboltype type)
 {
 	symbol* sym = symbol_get(s);
 
@@ -107,17 +106,124 @@ void symbol_print(symbol* sym)
 }
 
 
+// operator
 
-symbol* block_new(const char* s)
+static inline int operator_alias(optabentry* optab, char* p, operator* op, int overwriteif)
+{
+	const char* s2 = p;
+
+	//printf("operator_alias(\"%s\"): ", p);
+	while (*p != 0)
+	{
+#if LIBDEBUG >= 2
+		putchar(*p);
+#endif
+		unsigned char c = tolower(*p);
+
+		optabentry* optab2 = optab[c].next;
+		if (optab2 == NULL)
+		{
+			optab2 = optab[c].next = calloc(256,sizeof(optabentry));
+		}
+		optab = optab2;
+		p++;
+	}
+#if LIBDEBUG >= 2
+	putchar('\n');
+#endif
+	// if there's already something here, and both are actually supposed to
+	//  have left arguments (this is the left argument table), then complain
+	if (optab[0].op != NULL)
+	{
+		operator* op2 = optab[0].op;
+
+#if LIBDEBUG
+		printf("operator \"%s\" already defined: \"%s\" (%d%d%d): ", s2, op2->name, op2->leftarg, op2->rightarg, op2->bracket);
+#endif
+
+		if (!overwriteif || (op->leftarg && op2->leftarg))
+		{
+#if LIBDEBUG
+			printf("erroring\n");
+#endif
+			return 1;
+		}
+		else if (op->leftarg)
+		{
+#if LIBDEBUG
+			printf("overwriting\n");
+#endif
+		}
+		else
+		{
+#if LIBDEBUG
+			printf("yielding\n");
+#endif
+			return 0;
+		}
+	}
+
+	optab[0].op = op;
+
+	return 0;
+}
+
+operator* operator_new(char* s, double precedence, int leftarg, int rightarg, int bracket)
+{
+#if LIBDEBUG
+	printf("operator_new \"%s\" (%d%d%d, %g)\n", s, leftarg, rightarg, bracket, precedence);
+#endif
+
+	operator* op = malloc(sizeof(operator));
+	op->precedence = precedence;
+	op->name = s;
+
+	op->leftarg = leftarg;
+	op->rightarg = rightarg;
+	op->bracket = bracket;
+
+	if (!leftarg)
+	{
+		if (operator_alias(preoperators, s, op, 0))
+		{
+			printf("operator \"%s\" already defined!\n", s);
+			return NULL;
+		}
+	}
+
+	if (operator_alias(operators, s, op, 1))
+	{
+		printf("operator \"%s\" already defined!\n", s);
+		return NULL;
+	}
+
+#if LIBDEBUG
+	printf("\n");
+#endif
+
+	return op;
+}
+
+
+
+blockdef* block_new(char* s)
 {
 	symbol* sym = symbol_define(s, SYM_BLOCK);
 
 	if (sym == NULL) return NULL;
 
-	return sym;
+	blockdef* block = malloc(sizeof(blockdef));
+
+	block->symbols = symbols;
+	block->operators = operators;
+	block->preoperators = preoperators;
+
+	sym->data.block = block;
+
+	return block;
 }
 
-symbol* label_new(const char* s, line* l)
+symbol* label_new(char* s, line* l)
 {
 	symbol* sym = symbol_define(s, SYM_LABEL);
 
@@ -128,7 +234,7 @@ symbol* label_new(const char* s, line* l)
 	return sym;
 }
 
-symbol* mod_new(const char* s, const char* bits)
+symbol* mod_new(char* s, const char* bits)
 {
 	symbol* sym = symbol_define(s, SYM_MODIFIER);
 
@@ -146,7 +252,7 @@ symbol* mod_new(const char* s, const char* bits)
 	return sym;
 }
 
-symbol* opcode_new(const char* s, const char* bits)
+opcode* opcode_new(char* s, const char* bits)
 {
 	symbol* sym = symbol_define(s, SYM_OPCODE);
 
@@ -159,8 +265,9 @@ symbol* opcode_new(const char* s, const char* bits)
 
 	sym->data.op = op;
 
-	return sym;
+	return op;
 }
+
 
 operand* int_new(plong x)
 {
@@ -203,7 +310,17 @@ operand* ident_new(char** p)
 	return this;
 }
 
-operand* binop_new(char op, operand* lhs, operand* rhs)
+operand* string_new(char* s)
+{
+	operand* this = malloc(sizeof(operand));
+
+	this->tp = STRING;
+	this->val.str = s;
+
+	return this;
+}
+
+operand* binop_new(operator* op, operand* lhs, operand* rhs)
 {
 	operand* this = malloc(sizeof(operand));
 
@@ -223,7 +340,7 @@ int operand_eval(operand* this)
 		return 0;
 	}
 
-#if LIBDEBUG
+#if LIBDEBUG >= 2
 	printf("operand_eval: ");
 #endif
 
@@ -231,21 +348,21 @@ int operand_eval(operand* this)
 	{
 		case INT:
 		{
-#if LIBDEBUG
+#if LIBDEBUG >= 2
 			printf("int: %d\n", this->val.val);
 #endif
 			return this->val.val;
 		}
 		case IDENT:
 		{
-#if LIBDEBUG
+#if LIBDEBUG >= 2
 			printf("label: %s\n", this->val.ident);
 #endif
 			return this->val.ident->data.reg->caddr;
 		}
 		case BINOP:
 		{
-#if LIBDEBUG
+#if LIBDEBUG >= 2
 			printf("binop: %c\n", this->val.binop.op);
 #endif
 			int lhs = operand_eval(this->val.binop.operands[0]);
@@ -309,7 +426,15 @@ void operand_print(operand* this)
 		}
 		case BINOP:
 		{
-			printf("('%c'", this->val.binop.op);
+			if (this->val.binop.op != NULL)
+			{
+				printf("('%s'", this->val.binop.op->name);
+			}
+			else
+			{
+				printf("(NULL");
+			}
+
 			if (this->val.binop.operands[0] != NULL)
 			{
 				printf(" ");

@@ -5,8 +5,6 @@
 #include "parser.h"
 #include "parserlib.h"
 
-#define LIBDEBUG 0
-
 // main
 
 int main(int argc, char** argv)
@@ -37,6 +35,8 @@ int main(int argc, char** argv)
 	fclose(f);
 
 	stack/*of stack of line*/* blocks = parser(s);
+
+	printf("\nAST:\n");
 
 	for (int i=0; i < blocks->top; i++)
 	{

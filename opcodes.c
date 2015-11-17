@@ -176,3 +176,112 @@ mod_new("wc", "");
 mod_new("nc", "");
 mod_new("wr", "");
 mod_new("nr", "");
+
+
+// operators
+
+operator_new("$",  -1e9, 0,1,0);
+operator_new("%",  -1e9, 0,1,0);
+operator_new("%%", -1e9, 0,1,0);
+
+operator_new("--",   0,  0,1,0);
+operator_new("--",   0,  1,0,0);
+operator_new("++",   0,  0,1,0);
+operator_new("++",   0,  1,0,0);
+operator_new("~" ,   0,  0,1,0);
+operator_new("~" ,   0,  1,0,0);
+operator_new("~~",   0,  0,1,0);
+operator_new("~~",   0,  1,0,0);
+operator_new("?" ,   0,  0,1,0);
+operator_new("?" ,   0,  1,0,0);
+
+operator_new("#" ,   0,  0,1,0); // check this
+operator_new("@" ,   0,  0,1,0);
+operator_new("@@",   0,  0,1,0);
+
+operator_new("+",    1,  0,1,0);
+operator_new("-",    1,  0,1,0);
+operator_new("^^",   1,  0,1,0);
+operator_new("||",   1,  0,1,0);
+operator_new("|<",   1,  0,1,0);
+operator_new(">|",   1,  0,1,0);
+operator_new("!",    1,  0,1,0);
+
+operator_new("<-",   2,  1,1,0);
+operator_new("<-=",  2,  1,1,0);
+operator_new("->",   2,  1,1,0);
+operator_new("->=",  2,  1,1,0);
+operator_new("<<",   2,  1,1,0);
+operator_new("<<=",  2,  1,1,0);
+operator_new(">>",   2,  1,1,0);
+operator_new(">>=",  2,  1,1,0);
+operator_new("~>",   2,  1,1,0);
+operator_new("~>=",  2,  1,1,0);
+operator_new("><",   2,  1,1,0);
+operator_new("><=",  2,  1,1,0);
+
+operator_new("&",    3,  1,1,0);
+
+operator_new("|",    4,  1,1,0);
+operator_new("|=",   4,  1,1,0);
+operator_new("^",    4,  1,1,0);
+operator_new("^=",   4,  1,1,0);
+
+operator_new("*",    5,  1,1,0);
+operator_new("*=",   5,  1,1,0);
+operator_new("**",   5,  1,1,0);
+operator_new("**=",  5,  1,1,0);
+operator_new("/",    5,  1,1,0);
+operator_new("/=",   5,  1,1,0);
+operator_new("//",   5,  1,1,0);
+operator_new("//=",  5,  1,1,0);
+
+operator_new("+",    6,  1,1,0);
+operator_new("+=",   6,  1,1,0);
+operator_new("-",    6,  1,1,0);
+operator_new("-=",   6,  1,1,0);
+
+operator_new("#>",   7,  1,1,0);
+operator_new("#>=",  7,  1,1,0);
+operator_new("<#",   7,  1,1,0);
+operator_new("<#=",  7,  1,1,0);
+
+operator_new("<",    8,  1,1,0);
+operator_new("<=",   8,  1,1,0);
+operator_new(">",    8,  1,1,0);
+operator_new(">=",   8,  1,1,0);
+operator_new("<>",   8,  1,1,0);
+operator_new("<>=",  8,  1,1,0);
+operator_new("==",   8,  1,1,0);
+operator_new("===",  8,  1,1,0);
+operator_new("=<",   8,  1,1,0);
+operator_new("=<=",  8,  1,1,0);
+operator_new("=>",   8,  1,1,0);
+operator_new("=>=",  8,  1,1,0);
+
+
+operator_new("not",  9,  1,1,0);
+operator_new("not=", 9,  1,1,0);
+
+operator_new("and",  10, 1,1,0);
+operator_new("and=", 10, 1,1,0);
+
+operator_new("or",   11, 1,1,0);
+operator_new("or=",  11, 1,1,0);
+
+operator_new("=",    12, 1,1,0);
+operator_new(":=",   12, 1,1,0);
+
+operator_new(",",    13, 1,1,0);
+operator_new(":",    14, 1,1,0);
+operator_new("",     15, 1,1,0);
+operator_new("\n",     15, 1,1,0);
+
+
+operator_new("(",  -1e9, 1,1,1); // function call
+operator_new("(",   1e9, 0,1,1);
+operator_new(")",   1e9, 1,0,1);
+
+operator_new("[", -1e9, 1,1,2); // array index
+//operator_new("[",  1e9, 0,1,2); // unused [val] notation
+operator_new("]",  1e9, 1,0,2);
