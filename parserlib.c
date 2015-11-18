@@ -466,6 +466,23 @@ int operand_eval(operand* this)
 }
 */
 
+static void operand_print_list(operand* this)
+{
+	if (this->tp != BINOP || this->val.binop.op == NULL || this->val.binop.op->name[0] != 0)
+	{
+		operand_print(this);
+		return;
+	}
+
+	operand** operands = this->val.binop.operands;
+
+	operand_print_list(operands[0]);
+
+	printf(" ");
+
+	operand_print_list(operands[1]);
+}
+
 void operand_print(operand* this)
 {
 	if (this == NULL)
@@ -492,26 +509,39 @@ void operand_print(operand* this)
 		}
 		case BINOP:
 		{
-			if (this->val.binop.op != NULL)
+			operator* op = this->val.binop.op;
+			if (op != NULL && op->name[0] == 0)
 			{
-				printf("('%s'", this->val.binop.op->name);
+				printf("[");
+				operand_print_list(this);
+				printf("]");
 			}
 			else
 			{
-				printf("(NULL");
-			}
+				printf("(");
 
-			if (this->val.binop.operands[0] != NULL)
-			{
-				printf(" ");
-				operand_print(this->val.binop.operands[0]);
+				if (op != NULL)
+				{
+					printf("'%s'", op->name);
+				}
+				else
+				{
+					printf("NULL");
+				}
+
+				if (this->val.binop.operands[0] != NULL)
+				{
+					printf(" ");
+					operand_print(this->val.binop.operands[0]);
+				}
+				if (this->val.binop.operands[1] != NULL)
+				{
+					printf(" ");
+					operand_print(this->val.binop.operands[1]);
+				}
+
+				printf(")");
 			}
-			if (this->val.binop.operands[1] != NULL)
-			{
-				printf(" ");
-				operand_print(this->val.binop.operands[1]);
-			}
-			printf(")");
 
 			break;
 		}
