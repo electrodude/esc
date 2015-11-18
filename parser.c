@@ -210,6 +210,24 @@ static void fold(operator* nextop)
 
 static unsigned int lineno = 0;
 
+static void eatdocblockcomment(char** pp)
+{
+	char* p = *pp;
+
+	while (*p)
+	{
+		if (*p++ == '}')
+		{
+			if (*p == '}')
+			{
+				p++;
+				*pp = p;
+				return;
+			}
+		}
+	}
+}
+
 static void eatblockcomment(char** pp)
 {
 #if PARSERDEBUG >= 3
@@ -220,12 +238,23 @@ static void eatblockcomment(char** pp)
 
 	char* p = *pp;
 
-	while (level > 0 || *p == '{')
+	while (*p && (level > 0 || *p == '{'))
 	{
 		switch(*p++)
 		{
 			case 0   : goto end;
-			case '{' : level++; break;
+			case '{' :
+			{
+				if (*p == '{')
+				{
+					eatdocblockcomment(&p);
+				}
+				else
+				{
+					level++;
+				}
+				break;
+			}
 			case '}' : --level; break;
 			case '\n': lineno++;
 		}
