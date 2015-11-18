@@ -1,9 +1,164 @@
-block_new("con");
-block_new("obj");
-block_new("var");
-block_new("pub");
-block_new("pri");
-block_new("dat");
+// basic universal Spin operators
+operator_new("." ,  -1,  1,1,0);
+//operator_new("#" ,  -1,  1,1,0);
+
+operator_new("$",  -100, 0,1,0);
+operator_new("%",  -100, 0,1,0);
+operator_new("%%", -100, 0,1,0);
+
+operator_new("~" ,   0,  0,1,0);
+operator_new("~~",   0,  0,1,0);
+
+operator_new("@" ,   0,  0,1,0);
+operator_new("@@",   0,  0,1,0);
+
+operator_new("+",    1,  0,1,0);
+operator_new("-",    1,  0,1,0);
+operator_new("^^",   1,  0,1,0);
+operator_new("||",   1,  0,1,0);
+operator_new("|<",   1,  0,1,0);
+operator_new(">|",   1,  0,1,0);
+operator_new("!",    1,  0,1,0);
+
+operator_new("<-",   2,  1,1,0);
+operator_new("->",   2,  1,1,0);
+operator_new("<<",   2,  1,1,0);
+operator_new(">>",   2,  1,1,0);
+operator_new("~>",   2,  1,1,0);
+operator_new("><",   2,  1,1,0);
+
+operator_new("&",    3,  1,1,0);
+
+operator_new("|",    4,  1,1,0);
+operator_new("^",    4,  1,1,0);
+
+operator_new("*",    5,  1,1,0);
+operator_new("**",   5,  1,1,0);
+operator_new("/",    5,  1,1,0);
+operator_new("//",   5,  1,1,0);
+
+operator_new("+",    6,  1,1,0);
+operator_new("-",    6,  1,1,0);
+
+operator_new("#>",   7,  1,1,0);
+operator_new("<#",   7,  1,1,0);
+
+operator_new("<",    8,  1,1,0);
+operator_new(">",    8,  1,1,0);
+operator_new("<>",   8,  1,1,0);
+operator_new("==",   8,  1,1,0);
+operator_new("=<",   8,  1,1,0);
+operator_new("=>",   8,  1,1,0);
+
+
+operator_new("not",  9,  1,1,0);
+
+operator_new("and",  10, 1,1,0);
+
+operator_new("or",   11, 1,1,0);
+
+operator_new("(",  -100, 1,1,1); // function call
+operator_new("(",   100, 0,1,1);
+operator_new(")",   100, 1,0,1);
+
+operator_new("[", -100, 1,1,2); // array index
+//operator_new("[",  100, 0,1,2); // unused [val] notation
+operator_new("]",  100, 1,0,2);
+
+grammar_push();
+blockdef* objblock = block_new("obj");
+
+operator_new(":",    16, 1,1,0);
+
+grammar_pop();
+
+
+
+grammar_push();
+blockdef* conblock = block_new("con");
+
+operator_new("=",    12, 1,1,0);
+
+grammar_pop();
+
+grammar_push();
+blockdef* varblock = block_new("var");
+
+operator_new(",",    13, 1,1,0);
+operator_new("",     15, 1,1,0);
+
+/*
+label_new("byte");
+label_new("word");
+label_new("long");
+*/
+
+grammar_pop();
+
+grammar_push();
+blockdef* pubblock = block_new("pub");
+blockdef* priblock = block_new("pri");
+
+operator_new("--",   0,  0,1,0);
+operator_new("--",   0,  1,0,0);
+operator_new("++",   0,  0,1,0);
+operator_new("++",   0,  1,0,0);
+operator_new("~" ,   0,  1,0,0);
+operator_new("~~",   0,  1,0,0);
+operator_new("?" ,   0,  0,1,0);
+operator_new("?" ,   0,  1,0,0);
+
+operator_new("<-=",  2,  1,1,0);
+operator_new("->=",  2,  1,1,0);
+operator_new("<<=",  2,  1,1,0);
+operator_new(">>=",  2,  1,1,0);
+operator_new("~>=",  2,  1,1,0);
+operator_new("><=",  2,  1,1,0);
+
+
+operator_new("|=",   4,  1,1,0);
+operator_new("^=",   4,  1,1,0);
+
+operator_new("*=",   5,  1,1,0);
+operator_new("**=",  5,  1,1,0);
+operator_new("/=",   5,  1,1,0);
+operator_new("//=",  5,  1,1,0);
+
+operator_new("+=",   6,  1,1,0);
+operator_new("-=",   6,  1,1,0);
+
+operator_new("#>=",  7,  1,1,0);
+operator_new("<#=",  7,  1,1,0);
+
+operator_new("<=",   8,  1,1,0);
+operator_new(">=",   8,  1,1,0);
+operator_new("<>=",  8,  1,1,0);
+operator_new("===",  8,  1,1,0);
+operator_new("=<=",  8,  1,1,0);
+operator_new("=>=",  8,  1,1,0);
+
+
+operator_new("not=", 9,  1,1,0);
+
+operator_new("and=", 10, 1,1,0);
+
+operator_new("or=",  11, 1,1,0);
+
+operator_new(":=",   12, 1,1,0);
+
+operator_new(",",    13, 1,1,0);
+operator_new(":",    14, 1,1,0);
+operator_new("",     15, 1,1,0);
+
+grammar_pop();
+
+grammar_push();
+blockdef* datblock = block_new("dat");
+datblock->haslabels = 1;
+
+operator_new("#" ,   0,  0,1,0); // check precedence of this
+operator_new(",",    13, 1,1,0);
+operator_new("",     15, 1,1,0);
 
 opcode_new("org", "");
 opcode_new("res", "");
@@ -177,12 +332,18 @@ mod_new("nc", "");
 mod_new("wr", "");
 mod_new("nr", "");
 
+grammar_pop();
+
+
+block_select(conblock);
+
 
 // operators
 
-operator_new("$",  -1e9, 0,1,0);
-operator_new("%",  -1e9, 0,1,0);
-operator_new("%%", -1e9, 0,1,0);
+/*
+operator_new("$",  -100, 0,1,0);
+operator_new("%",  -100, 0,1,0);
+operator_new("%%", -100, 0,1,0);
 
 operator_new("--",   0,  0,1,0);
 operator_new("--",   0,  1,0,0);
@@ -195,7 +356,7 @@ operator_new("~~",   0,  1,0,0);
 operator_new("?" ,   0,  0,1,0);
 operator_new("?" ,   0,  1,0,0);
 
-operator_new("#" ,   0,  0,1,0); // check this
+operator_new("#" ,   0,  0,1,0); // check precedence of this
 operator_new("@" ,   0,  0,1,0);
 operator_new("@@",   0,  0,1,0);
 
@@ -278,10 +439,11 @@ operator_new("",     15, 1,1,0);
 operator_new("\n",     15, 1,1,0);
 
 
-operator_new("(",  -1e9, 1,1,1); // function call
-operator_new("(",   1e9, 0,1,1);
-operator_new(")",   1e9, 1,0,1);
+operator_new("(",  -100, 1,1,1); // function call
+operator_new("(",   100, 0,1,1);
+operator_new(")",   100, 1,0,1);
 
-operator_new("[", -1e9, 1,1,2); // array index
-//operator_new("[",  1e9, 0,1,2); // unused [val] notation
-operator_new("]",  1e9, 1,0,2);
+operator_new("[", -100, 1,1,2); // array index
+//operator_new("[",  100, 0,1,2); // unused [val] notation
+operator_new("]",  100, 1,0,2);
+*/

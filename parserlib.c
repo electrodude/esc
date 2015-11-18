@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#include "stack.h"
+
 #include "parserlib.h"
 
 #define LIBDEBUG 0
@@ -178,7 +180,7 @@ operator* operator_new(char* s, double precedence, int leftarg, int rightarg, in
 	op->precedence = precedence;
 	op->name = s;
 
-	op->leftarg = leftarg;
+	op->leftarg = leftarg > 0;
 	op->rightarg = rightarg;
 	op->bracket = bracket;
 
@@ -191,10 +193,13 @@ operator* operator_new(char* s, double precedence, int leftarg, int rightarg, in
 		}
 	}
 
-	if (operator_alias(operators, s, op, 1))
+	if (leftarg >= 0)
 	{
-		printf("operator \"%s\" already defined!\n", s);
-		return NULL;
+		if (operator_alias(operators, s, op, 1))
+		{
+			printf("operator \"%s\" already defined!\n", s);
+			return NULL;
+		}
 	}
 
 #if LIBDEBUG
@@ -204,6 +209,61 @@ operator* operator_new(char* s, double precedence, int leftarg, int rightarg, in
 	return op;
 }
 
+static optabentry* optabentry_clone(optabentry* optab)
+{
+	if (optab == NULL)
+	{
+		return NULL;
+	}
+
+	optabentry* optab2 = calloc(256, sizeof(optabentry));
+
+	optab2[0].op = optab[0].op;
+
+	for (int i=1; i < 256; i++)
+	{
+		optab2[i].next = optabentry_clone(optab[i].next);
+	}
+
+	return optab2;
+}
+
+static stack* grammarstack;
+
+void grammar_push(void)
+{
+	// save old grammar
+	blockdef* block = malloc(sizeof(blockdef));
+
+	block->symbols = symbols;
+	block->operators = operators;
+	block->preoperators = preoperators;
+
+	stack_push(grammarstack, block);
+
+	// and clone it
+
+	//symbols = symtabentry_clone(symbols);
+	operators = optabentry_clone(operators);
+	preoperators = optabentry_clone(preoperators);
+}
+
+void grammar_pop(void)
+{
+	blockdef* block = stack_pop(grammarstack);
+
+	if (block == NULL)
+	{
+		printf("Grammar stack underflow!\n");
+		exit(1);
+	}
+
+	symbols = block->symbols;
+	operators = block->operators;
+	preoperators = block->preoperators;
+
+	free(block);
+}
 
 
 blockdef* block_new(char* s)
@@ -218,18 +278,25 @@ blockdef* block_new(char* s)
 	block->operators = operators;
 	block->preoperators = preoperators;
 
+	block->haslabels = 0;
+
 	sym->data.block = block;
 
 	return block;
 }
 
-symbol* label_new(char* s, line* l)
+void block_select(blockdef* block)
+{
+	symbols = block->symbols;
+	operators = block->operators;
+	preoperators = block->preoperators;
+}
+
+symbol* label_new(char* s)
 {
 	symbol* sym = symbol_define(s, SYM_LABEL);
 
 	if (sym == NULL) return NULL;
-
-	sym->data.line = l;
 
 	return sym;
 }
@@ -456,6 +523,12 @@ void operand_print(operand* this)
 
 			break;
 		}
+		case STRING:
+		{
+			printf("\"%s\"", this->val.str);
+
+			break;
+		}
 		default:
 		{
 			printf("? type=%d ?", this->tp);
@@ -501,3 +574,12 @@ void operand_kill(operand* this)
 	free(this);
 }
 */
+
+void parserlib_init(void)
+{
+	symbols = malloc(sizeof(symtabentry)*256);
+	operators = malloc(sizeof(optabentry)*256);
+	preoperators = malloc(sizeof(optabentry)*256);
+
+	grammarstack = stack_new();
+}

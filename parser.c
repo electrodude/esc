@@ -12,7 +12,6 @@
 
 
 static stack* vstack;
-
 static stack* ostack;
 
 static char* tok2stra(char* base, char* start, char* end)
@@ -80,7 +79,7 @@ static void fold(operator* nextop)
 	{
 		// don't fold if left bracket
 
-#if PARERDEBUG
+#if PARSERDEBUG
 		printf("fold: left bracket, no fold\n");
 #endif
 
@@ -233,9 +232,11 @@ stack* parser(char* p)
 	char* lastgloballabel = "!begin";
 
 
-	const char* currblock = symbol_get("con")->name;
+	blockdef* currblock = symbol_get("con")->data.block;
 
-	const char* datblockname = symbol_get("dat")->name;
+	symtabentry* symbols = currblock->symbols;
+	optabentry* operators = currblock->operators;
+	optabentry* preoperators = currblock->preoperators;
 
 
 	stack* blocks = stack_new();
@@ -348,7 +349,7 @@ expr:
 	currop = currop[tolower(*p)].next;
 
 	if (*p >= '0' && *p <= '9') goto decnum;
-	if (islabelchar[*p] >= 3) goto ident;
+	if (islabelchar[*p] >= 3 || (currblock->haslabels && islabelchar[*p] == 1)) goto ident;
 
 	if ((*p == '\n' || *p == '\r') && stack_peek(vstack) == NULL)
 	{
@@ -391,7 +392,7 @@ expr:
 ident:
 	ts = p;
 
-	while (*p && (islabelchar[*p] >= 2 || currop != NULL))
+	while (*p && (islabelchar[*p] >= (currblock->haslabels ? 1 : 2) || currop != NULL))
 	{
 #if PARSERDEBUG >= 3
 		printf("ident: '%c'\n", *p);
@@ -437,7 +438,7 @@ ident:
 
 	if (stack_peek(vstack) == NULL)
 	{
-		if (currblock == datblockname)
+		if (currblock->haslabels)
 		{
 			// DAT blocks have local labels, which we need to scope now
 			if (sym->type == SYM_UNKNOWN)
@@ -466,11 +467,11 @@ ident:
 
 			stack_push(blocks, lines);
 
-			currblock = s;
+			currblock = sym->data.block;
 
-			symbols = sym->data.block->symbols;
-			operators = sym->data.block->operators;
-			preoperators = sym->data.block->preoperators;
+			symbols = currblock->symbols;
+			operators = currblock->operators;
+			preoperators = currblock->preoperators;
 
 			push = 0;
 		}
@@ -498,6 +499,8 @@ ident:
 
 
 string:
+	p++;
+
 	ts = p;
 
 string_mid:
@@ -514,7 +517,6 @@ string_mid:
 
 	stack_push(vstack, string_new(tok2str(ts, p)));
 	p++;
-
 
 	goto operator;
 
@@ -696,6 +698,9 @@ error:
 
 
 end:
+#if PARSERDEBUG
+	printf("EOF\n");
+#endif
 
 	return blocks;
 }
@@ -715,15 +720,13 @@ void parser_init(void)
 	islabelchar_r('A', 'Z',   3);
 	islabelchar_r('a', 'z',   3);
 	islabelchar       ['_'] = 3;
-	islabelchar       [':'] = 3;
-	islabelchar       ['.'] = 3;
+	islabelchar       [':'] = 1;
+	//islabelchar       ['.'] = 3;
 	islabelchar_r('0', '9',   2);
-	islabelchar_r(128, 255,   2); // UTF-8 support
+	islabelchar_r(128, 255,   3); // UTF-8 support
 
 	vstack = stack_new();
 	ostack = stack_new();
 
-	symbols = malloc(sizeof(symtabentry)*256);
-	operators = malloc(sizeof(optabentry)*256);
-	preoperators = malloc(sizeof(optabentry)*256);
+	parserlib_init();
 }
