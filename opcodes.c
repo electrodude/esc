@@ -119,6 +119,7 @@ operator_new(">>=",  2,  1,1);
 operator_new("~>=",  2,  1,1);
 operator_new("><=",  2,  1,1);
 
+operator_new("&=",   3,  1,1);
 
 operator_new("|=",   4,  1,1);
 operator_new("^=",   4,  1,1);
