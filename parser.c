@@ -66,7 +66,7 @@ static void printstacks(void)
 
 static void fold(operator* nextop)
 {
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 	if (nextop != NULL)
 	{
 		printf("fold: nextop = \"%s\" (%d, %d)\n", nextop->name, nextop->leftarg, nextop->rightarg);
@@ -81,13 +81,13 @@ static void fold(operator* nextop)
 	{
 		// don't fold if left bracket
 
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 		printf("fold: left bracket, no fold\n");
 #endif
 
 		stack_push(ostack, nextop);
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 		printstacks();
 #endif
 
@@ -105,13 +105,13 @@ static void fold(operator* nextop)
 	      )
 	{
 		topop = stack_pop(ostack);
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 		printf("fold: op \"%s\" (%d, %d)\n", topop->name, topop->leftarg, topop->rightarg);
 #endif
 
 		if (topop != NULL && nextop != NULL && topop->leftarg == 0 && topop->rightarg >= 2 && nextop->leftarg >= 2 && nextop->rightarg == 0)
 		{
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 			printf("fold bracket break\n");
 #endif
 			break;
@@ -143,14 +143,14 @@ static void fold(operator* nextop)
 
 		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
 		{
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 			printf("fold function break\n");
 #endif
 			break;
 		}
 	}
 
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 	printf("fold: done\n");
 #endif
 
@@ -196,13 +196,13 @@ static void fold(operator* nextop)
 
 	if (nextop != NULL && !(nextop->leftarg >= 2 && nextop->rightarg == 0))
 	{
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 		printf("fold: push\n");
 #endif
 		stack_push(ostack, nextop);
 	}
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printstacks();
 #endif
 }
@@ -211,7 +211,7 @@ static unsigned int lineno = 0;
 
 static void eatblockcomment(char** pp)
 {
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("block comment on line %d: ", lineno);
 #endif
 
@@ -231,7 +231,7 @@ static void eatblockcomment(char** pp)
 	}
 
 end:
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("ate %ld chars\n", p - *pp);
 #endif
 
@@ -251,7 +251,7 @@ stack* parser(char* p)
 	lineno = 1;
 	char* linestart = p;
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("Line %d\n", lineno);
 #endif
 
@@ -276,7 +276,7 @@ stack* parser(char* p)
 	goto line;
 
 newline:
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 	printf("\\n\n");
 #endif
 
@@ -291,7 +291,7 @@ newline:
 	{
 		currline->operand = stack_pop(vstack);
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG
 		operand_print(currline->operand);
 		printf("\n");
 #endif
@@ -304,7 +304,7 @@ newline:
 	goto line;
 
 line:
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	//printf("line\n", *p);
 	printf("line: '%c'\n", *p);
 #endif
@@ -322,7 +322,7 @@ line:
 	goto expr_entry;
 
 comment:
-#if PARSERDEBUG >= 4
+#if PARSERDEBUG >= 5
 	printf("comment: '%c'\n", *p);
 #endif
 	switch (*p)
@@ -358,7 +358,7 @@ expr_entry:
 	}
 
 expr:
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("expr: '%c'\n", *p);
 #endif
 	currop = preoperators;
@@ -390,7 +390,7 @@ expr:
 
 		while (*p && currop[tolower(*p)].next != NULL)
 		{
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 			printf("prefix operator char: '%c'\n", *p);
 #endif
 			currop = currop[tolower(*p)].next;
@@ -406,7 +406,7 @@ expr:
 		}
 
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 		printf("prefix op operator: \"%s\"\n", op->name);
 #endif
 		fold(op);
@@ -421,7 +421,7 @@ ident:
 
 	while (*p && (islabelchar[*p] >= (currblock->haslabels ? 1 : 2) || currop != NULL))
 	{
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 		printf("ident: '%c'\n", *p);
 #endif
 
@@ -437,7 +437,7 @@ ident:
 	{
 		operator* op = currop[0].op;
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 		printf("prefix ident operator: \"%s\"\n", op->name);
 #endif
 		fold(op);
@@ -454,7 +454,7 @@ ident:
 
 	char* s = tok2stra(base, ts, p);
 
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 	printf("ident: \"%s\"\n", s);
 #endif
 	operand* val = ident_new(&s);
@@ -531,7 +531,7 @@ string:
 	ts = p;
 
 string_mid:
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("string: '%c'\n", *p);
 #endif
 
@@ -573,7 +573,7 @@ num:
 
 	plong n = 0;
 num_l:
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	printf("num: '%c'\n", *p);
 #endif
 	switch (*p)
@@ -623,7 +623,7 @@ num_float:
 	float exponent = 1/(float)nbase;
 
 num_float_l:
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	printf("num_float: '%c'\n", *p);
 #endif
 	switch (*p)
@@ -671,7 +671,7 @@ num_float_e:
 	int e = 0;
 
 num_float_e_l:
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	printf("num_float_e: '%c'\n", *p);
 #endif
 	switch (*p)
@@ -709,14 +709,14 @@ num_float_e_l:
 
 num_float_done:
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("num_float: %g\n", nf);
 #endif
 	n = *(plong*)&nf;
 
 num_done:
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("num: %d\n", n);
 #endif
 	stack_push(vstack, int_new(n));
@@ -724,7 +724,7 @@ num_done:
 	goto operator;
 
 here_or_hex:
-#if PARSERDEBUG
+#if PARSERDEBUG >= 3
 	printf("here or hex: '%c'\n", *p);
 #endif
 	p++;
@@ -736,7 +736,7 @@ here_or_hex:
 operator:
 	currop = operators;
 
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	printf("operator char: '%c'\n", *p);
 #endif
 	switch (*p)
@@ -756,7 +756,7 @@ operator_mid:
 
 	while (*p && currop[tolower(*p)].next != NULL)
 	{
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 		printf("operator char: '%c'\n", *p);
 #endif
 		currop = currop[tolower(*p)].next;
@@ -774,7 +774,7 @@ operator_mid:
 	}
 
 
-#if PARSERDEBUG >= 2
+#if PARSERDEBUG >= 3
 	printf("operator: \"%s\"\n", op->name);
 #endif
 
