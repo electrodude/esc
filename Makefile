@@ -5,12 +5,12 @@ LDFLAGS=-lm
 CC=gcc
 LD=gcc
 
-all:		pasm
+all:		esc
 
 clean:
-		rm -vf *.o pasm
+		rm -vf *.o esc
 
-pasm:		main.o parser.o parserlib.o stack.o
+esc:		main.o parser.o parserlib.o stack.o
 		${LD} ${LDFLAGS} $^ -o $@
 
 %.o:		%.c
@@ -24,9 +24,8 @@ depend:
 main.o: main.c parser.h parallax_types.h stack.h parserlib.h opcodes.c
 parser.o: parser.c parser.h parallax_types.h stack.h parserlib.h
 parser.o: parser.h parallax_types.h stack.h
-parserlib.o: parserlib.c parserlib.h parallax_types.h
+parserlib.o: parserlib.c stack.h parserlib.h parallax_types.h
 parserlib.o: parserlib.h parallax_types.h
 stack.o: stack.c stack.h
 stack.o: stack.h
 parallax_types.o: parallax_types.h
-
