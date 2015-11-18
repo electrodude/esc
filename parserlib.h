@@ -167,7 +167,8 @@ opcode* opcode_new(char* s, const char* bits);
 
 operand* int_new(plong x);
 operand* ref_new(line* l);
-operand* ident_new(char** p);
+operand* ident_new(char* s);
+operand* ident_new_intern(char** p);
 operand* string_new(char* s);
 operand* binop_new(operator* op, operand* lhs, operand* rhs);
 

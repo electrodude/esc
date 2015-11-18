@@ -100,7 +100,7 @@ static void fold(operator* nextop)
 	while (topop = stack_peek(ostack),
 	        topop != NULL // stop if stack is empty
 	        && (nextop == NULL // continue all the way if nextop == NULL
-		    || (nextop->leftarg >= 2 || (topop->rightarg < 2 && nextop->precedence >= topop->precedence)) // stop if right bracket or failed precedence test
+		    || (nextop->leftarg >= 2 || (topop->rightarg < 2 && nextop->precedence > topop->precedence)) // stop if right bracket or failed precedence test
 		   )
 	        //&& ((nextop != NULL && topop->rightarg == nextop->leftarg) || topop->rightarg == 0) // unless tos is left bracket, stop if mat
 	      )
@@ -415,9 +415,8 @@ expr:
 		case '{' : eatblockcomment(&p); goto expr;
 		case '"' : goto string;
 		case '%' : p++; goto binnum;
+		case '$' : p++; goto here_or_hex;
 	}
-
-	currop = currop[tolower(*p)].next;
 
 	if (*p >= '0' && *p <= '9') goto decnum;
 	if (islabelchar[*p] >= 3 || (currblock->haslabels && islabelchar[*p] == 1)) goto ident;
@@ -426,6 +425,8 @@ expr:
 	{
 		goto newline;
 	}
+
+	currop = currop[tolower(*p)].next;
 
 
 	if (currop != NULL)
@@ -462,8 +463,8 @@ expr:
 
 ident:
 	ts = p;
-
-	while (*p && (islabelchar[*p] >= (currblock->haslabels ? 1 : 2) || currop != NULL))
+ident_l:
+	while (*p && (islabelchar[*p] >= (currblock->haslabels ? 1 : 2)) || currop != NULL)
 	{
 #if PARSERDEBUG >= 4
 		printf("ident: '%c'\n", *p);
@@ -477,16 +478,30 @@ ident:
 		p++;
 	}
 
-	if (currop != NULL && currop[0].op != NULL)
+	if (currop != NULL)
 	{
+#if PARSERDEBUG >= 4
+		printf("ident: op\n");
+#endif
+
 		operator* op = currop[0].op;
 
+		if (op != NULL)
+		{
 #if PARSERDEBUG >= 3
-		printf("prefix ident operator: \"%s\"\n", op->name);
+			printf("prefix ident operator: \"%s\"\n", op->name);
 #endif
-		fold(op);
+			fold(op);
 
-		goto expr;
+			if (op->rightarg)
+			{
+				goto expr;
+			}
+			else
+			{
+				goto operator;
+			}
+		}
 	}
 
 	char* base = "";
@@ -501,7 +516,7 @@ ident:
 #if PARSERDEBUG >= 3
 	printf("ident: \"%s\"\n", s);
 #endif
-	operand* val = ident_new(&s);
+	operand* val = ident_new_intern(&s);
 
 	symbol* sym = val->val.ident;
 
@@ -773,10 +788,11 @@ here_or_hex:
 #if PARSERDEBUG >= 3
 	printf("here or hex: '%c'\n", *p);
 #endif
-	p++;
-	if (isxdigit(*p)) goto hexnum;
+	ts = p;
 
-	stack_push(vstack, ref_new(currline));
+	if (isxdigit(*p) || *p == '_') goto hexnum;
+
+	stack_push(vstack, ident_new("$"));
 	goto operator;
 
 operator:

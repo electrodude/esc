@@ -2,10 +2,6 @@
 operator_new("." ,  -1,  1,1);
 //operator_new("#" ,  -1,  1,1);
 
-operator_new("$",  -100, 0,1);
-//operator_new("%",  -100, 0,1);
-//operator_new("%%", -100, 0,1);
-
 operator_new("~" ,   0,  0,1);
 operator_new("~~",   0,  0,1);
 
@@ -51,19 +47,19 @@ operator_new("=<",   8,  1,1);
 operator_new("=>",   8,  1,1);
 
 
-operator_new("not",  9,  1,1);
+operator_new("not",  9,  0,1);
 
 operator_new("and",  10, 1,1);
 
 operator_new("or",   11, 1,1);
 
-operator_new("(",  -100, 1,2); // function call
-operator_new("(",   100, 0,2);
-operator_new(")",   100, 2,0);
+operator_new("(",   -10, 1,2); // function call
+operator_new("(",    10, 0,2);
+operator_new(")",    10, 2,0);
 
-operator_new("[", -100, 1,3); // array index
-//operator_new("[",  100, 0,3); // unused [val] notation
-operator_new("]",  100, 3,0);
+operator_new("[",  -10, 1,3); // array index
+//operator_new("[",   10, 0,3); // unused [val] notation
+operator_new("]",   10, 3,0);
 
 grammar_push();
 blockdef* objblock = block_new("obj");
@@ -77,7 +73,9 @@ grammar_pop();
 grammar_push();
 blockdef* conblock = block_new("con");
 
+operator_new("#" ,   0,  0,1); // check precedence of this
 operator_new("=",    12, 1,1);
+operator_new(",",    13, 1,1);
 
 grammar_pop();
 
@@ -140,8 +138,6 @@ operator_new("=<=",  8,  1,1);
 operator_new("=>=",  8,  1,1);
 
 
-operator_new("not=", 9,  1,1);
-
 operator_new("and=", 10, 1,1);
 
 operator_new("or=",  11, 1,1);
@@ -169,6 +165,8 @@ opcode_new("fit", "");
 opcode_new("byte", "");
 opcode_new("word", "");
 opcode_new("long", "");
+
+label_new("$");
 
 
 
@@ -343,9 +341,6 @@ block_select(conblock);
 // operators
 
 /*
-operator_new("$",  -100, 0,1);
-//operator_new("%",  -100, 0,1);
-//operator_new("%%", -100, 0,1);
 
 operator_new("--",   0,  0,1);
 operator_new("--",   0,  1,0);
@@ -423,8 +418,7 @@ operator_new("=>",   8,  1,1);
 operator_new("=>=",  8,  1,1);
 
 
-operator_new("not",  9,  1,1);
-operator_new("not=", 9,  1,1);
+operator_new("not",  9,  0,1);
 
 operator_new("and",  10, 1,1);
 operator_new("and=", 10, 1,1);
@@ -438,14 +432,14 @@ operator_new(":=",   12, 1,1);
 operator_new(",",    13, 1,1);
 operator_new(":",    14, 1,1);
 operator_new("",     15, 1,1);
-operator_new("\n",     15, 1,1);
+//operator_new("\n",   15, 1,1);
 
 
-operator_new("(",  -100, 1,2); // function call
-operator_new("(",   100, 0,2);
-operator_new(")",   100, 2,0);
+operator_new("(",   -10, 1,2); // function call
+operator_new("(",    10, 0,2);
+operator_new(")",    10, 2,0);
 
-operator_new("[", -100, 1,3); // array index
-//operator_new("[",  100, 0,3); // unused [val] notation
-operator_new("]",  100, 3,0);
+operator_new("[",  -10, 1,3); // array index
+//operator_new("[",   10, 0,3); // unused [val] notation
+operator_new("]",   10, 3,0);
 */

@@ -355,12 +355,19 @@ operand* ref_new(line* l)
 	return this;
 }
 
-operand* ident_new(char** p)
+operand* ident_new(char* s)
 {
 	operand* this = malloc(sizeof(operand));
 
 	this->tp = IDENT;
-	this->val.ident = symbol_get(*p);
+	this->val.ident = symbol_get(s);
+
+	return this;
+}
+
+operand* ident_new_intern(char** p)
+{
+	operand* this = ident_new(*p);
 
 	char* s = this->val.ident->name;
 
