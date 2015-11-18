@@ -133,7 +133,7 @@ typedef struct opcode
 // expression
 typedef struct operand
 {
-	enum {INT, IDENT, REF, STRING, BINOP} tp;
+	enum {INT, IDENT, REF, STRING, BINOP} type;
 	union
 	{
 		plong val;

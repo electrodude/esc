@@ -1,6 +1,8 @@
 // basic universal Spin operators
-operator_new("." ,  -1,  1,1);
-//operator_new("#" ,  -1,  1,1);
+
+// . and #
+operator_new("." ,  -11,  1,1);
+operator_new("#" ,  -11,  -1,1);
 
 operator_new("~" ,   0,  0,1);
 operator_new("~~",   0,  0,1);
@@ -99,6 +101,8 @@ pubblock->hasindent = 1;
 blockdef* priblock = block_new("pri");
 priblock->hasindent = 1;
 
+operator_new("\\" ,  -2,  0,1); // \try
+
 operator_new("--",   0,  0,1);
 operator_new("--",   0,  1,0);
 operator_new("++",   0,  0,1);
@@ -144,8 +148,9 @@ operator_new("or=",  11, 1,1);
 
 operator_new(":=",   12, 1,1);
 
+operator_new("..",   12.5,  1,1);
 operator_new(",",    13, 1,1);
-operator_new(":",    14, 1,1);
+operator_new(":",    14, 1,-1);
 operator_new("",     15, 1,1);
 
 grammar_pop();

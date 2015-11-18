@@ -339,7 +339,7 @@ operand* int_new(plong x)
 {
 	operand* this = malloc(sizeof(operand));
 
-	this->tp = INT;
+	this->type = INT;
 	this->val.val = x;
 
 	return this;
@@ -349,7 +349,7 @@ operand* ref_new(line* l)
 {
 	operand* this = malloc(sizeof(operand));
 
-	this->tp = REF;
+	this->type = REF;
 	this->val.line = l;
 
 	return this;
@@ -359,7 +359,7 @@ operand* ident_new(char* s)
 {
 	operand* this = malloc(sizeof(operand));
 
-	this->tp = IDENT;
+	this->type = IDENT;
 	this->val.ident = symbol_get(s);
 
 	return this;
@@ -387,7 +387,7 @@ operand* string_new(char* s)
 {
 	operand* this = malloc(sizeof(operand));
 
-	this->tp = STRING;
+	this->type = STRING;
 	this->val.str = s;
 
 	return this;
@@ -397,7 +397,7 @@ operand* binop_new(operator* op, operand* lhs, operand* rhs)
 {
 	operand* this = malloc(sizeof(operand));
 
-	this->tp = BINOP;
+	this->type = BINOP;
 	this->val.binop.op = op;
 	this->val.binop.operands[0] = lhs;
 	this->val.binop.operands[1] = rhs;
@@ -417,7 +417,7 @@ int operand_eval(operand* this)
 	printf("operand_eval: ");
 #endif
 
-	switch (this->tp)
+	switch (this->type)
 	{
 		case INT:
 		{
@@ -468,14 +468,14 @@ int operand_eval(operand* this)
 			return 0;
 		}
 	}
-	printf("Error: unknown value type: %d\n", this->tp);
+	printf("Error: unknown value type: %d\n", this->type);
 	exit(1);
 }
 */
 
 static void operand_print_list(operand* this)
 {
-	if (this->tp != BINOP || this->val.binop.op == NULL || this->val.binop.op->name[0] != 0)
+	if (this->type != BINOP || this->val.binop.op == NULL || this->val.binop.op->name[0] != 0)
 	{
 		operand_print(this);
 		return;
@@ -498,7 +498,7 @@ void operand_print(operand* this)
 		return;
 	}
 
-	switch (this->tp)
+	switch (this->type)
 	{
 		case INT:
 		{
@@ -567,7 +567,7 @@ void operand_print(operand* this)
 		}
 		default:
 		{
-			printf("? type=%d ?", this->tp);
+			printf("? type=%d ?", this->type);
 
 			break;
 		}
@@ -582,7 +582,7 @@ void operand_kill(operand* this)
 		return;
 	}
 
-	switch (this->tp)
+	switch (this->type)
 	{
 		case INT:
 		{
@@ -601,7 +601,7 @@ void operand_kill(operand* this)
 		}
 		default:
 		{
-			printf("Error: unknown value type: %d\n", this->tp);
+			printf("Error: unknown value type: %d\n", this->type);
 			//exit(1); // who cares about memory leaks? :)
 			break;
 		}

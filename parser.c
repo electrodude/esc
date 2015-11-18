@@ -115,11 +115,11 @@ static void fold(operator* nextop)
 #if PARSERDEBUG >= 3
 			printf("fold bracket break\n");
 #endif
-			break;
+			goto folded;
 		}
 
 		operand* rhs = NULL;
-		if (topop->rightarg)
+		if (topop->rightarg && (topop->rightarg >= 0 || vstack->top >= 2))
 		{
 			rhs = stack_pop(vstack);
 			if (rhs == NULL)
@@ -129,25 +129,41 @@ static void fold(operator* nextop)
 			}
 		}
 
+		int hash_hack = 0;
+
 		operand* lhs = NULL;
 		if (topop->leftarg)
 		{
-			lhs = stack_pop(vstack);
-			if (lhs == NULL)
+			operand* lhs_peek = stack_peek(vstack);
+			if (topop->leftarg == -1 && lhs_peek != NULL && lhs_peek->type == IDENT && (lhs_peek->val.ident->type != SYM_LABEL && lhs_peek->val.ident->type != SYM_UNKNOWN))
 			{
-				printf("Error: lhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
-				exit(1);
+				// deal with cases like "jmp #label"
+				hash_hack = 1;
+			}
+			else
+			{
+				lhs = stack_pop(vstack);
+				if (lhs == NULL && topop->rightarg >= 0)
+				{
+					printf("Error: lhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
+					exit(1);
+				}
 			}
 		}
 
 		stack_push(vstack, binop_new(topop, lhs, rhs));
+
+		if (hash_hack)
+		{
+			stack_push(ostack, operators[0].op);
+		}
 
 		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
 		{
 #if PARSERDEBUG >= 3
 			printf("fold function break\n");
 #endif
-			break;
+			goto folded;
 		}
 	}
 
@@ -159,9 +175,11 @@ static void fold(operator* nextop)
 
 	if (topop != NULL && nextop != NULL && topop->rightarg >= 2 && nextop->leftarg >= 2 && topop->rightarg != nextop->leftarg)
 	{
-		printf("Error: mismatched brackets\n");
+		printf("Error: mismatched brackets: %d, %d\n", topop->rightarg, nextop->leftarg);
 		exit(1);
 	}
+
+folded:
 
 	if (nextop == NULL && topop != NULL && topop->rightarg >= 2)
 	{
@@ -290,9 +308,9 @@ stack* parser(char* p)
 
 	blockdef* currblock = symbol_get("con")->data.block;
 
-	symtabentry* symbols = currblock->symbols;
-	optabentry* operators = currblock->operators;
-	optabentry* preoperators = currblock->preoperators;
+	symbols = currblock->symbols;
+	operators = currblock->operators;
+	preoperators = currblock->preoperators;
 
 
 	stack* blocks = stack_new();
@@ -445,6 +463,9 @@ expr:
 		case '"' : goto string;
 		case '%' : p++; goto binnum;
 		case '$' : p++; goto here_or_hex;
+		case '\'': fold(NULL); goto comment;
+		case '\n':
+		case '\r': fold(NULL); p++; goto newline;
 	}
 
 	if (*p >= '0' && *p <= '9') goto decnum;
@@ -493,7 +514,7 @@ expr:
 ident:
 	ts = p;
 ident_l:
-	while (*p && (islabelchar[*p] >= (currblock->haslabels ? 1 : 2)) || currop != NULL)
+	while (*p && (islabelchar[*p] >= (currblock->haslabels ? 1 : 2)))
 	{
 #if PARSERDEBUG >= 4
 		printf("ident: '%c'\n", *p);
@@ -512,6 +533,16 @@ ident_l:
 #if PARSERDEBUG >= 4
 		printf("ident: op\n");
 #endif
+		char* p2 = p;
+		while (*p2 && currop[tolower(*p)].next != NULL)
+		{
+#if PARSERDEBUG >= 4
+			printf("prefix ident operator char: '%c'\n", *p2);
+#endif
+			currop = currop[tolower(*p)].next;
+
+			p2++;
+		}
 
 		operator* op = currop[0].op;
 
@@ -521,6 +552,8 @@ ident_l:
 			printf("prefix ident operator: \"%s\"\n", op->name);
 #endif
 			fold(op);
+
+			p = p2;
 
 			if (op->rightarg)
 			{
@@ -688,7 +721,8 @@ num_l:
 	{
 		// eat underscores
 	}
-	else if (*p == '.')
+	else if (*p == '.' && /* check for operator starting with . */
+	                      (operators['.'].next == NULL || operators['.'].next[tolower(p[1])].next == NULL))
 	{
 		p++;
 		goto num_float;
@@ -923,7 +957,7 @@ error:
 
 end:
 #if PARSERDEBUG
-	printf("EOF\n");
+	printf("EOF\n\n");
 #endif
 
 	return blocks;
