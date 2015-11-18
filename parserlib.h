@@ -32,6 +32,7 @@ typedef struct blockdef
 	optabentry* preoperators;
 
 	int haslabels : 1;
+	int hasindent : 1;
 } blockdef;
 
 // symbol
@@ -111,6 +112,9 @@ extern optabentry* preoperators;
 typedef struct line
 {
 	operand* operand;
+	unsigned int indent;
+	unsigned int indentdepth;
+	struct line* parent;
 } line;
 
 

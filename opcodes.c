@@ -97,7 +97,9 @@ grammar_pop();
 
 grammar_push();
 blockdef* pubblock = block_new("pub");
+pubblock->hasindent = 1;
 blockdef* priblock = block_new("pri");
+priblock->hasindent = 1;
 
 operator_new("--",   0,  0,1);
 operator_new("--",   0,  1,0);

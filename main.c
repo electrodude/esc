@@ -40,11 +40,12 @@ int main(int argc, char** argv)
 
 	for (int i=0; i < blocks->top; i++)
 	{
-		printf("\nblock ");
+		printf("\nblock\n");
 		stack/* of line */* lines = blocks->base[i];
 		for (int j=0; j < lines->top; j++)
 		{
 			line* l = lines->base[j];
+			printf("%d ", l->indentdepth);
 			operand_print(l->operand);
 			printf("\n");
 

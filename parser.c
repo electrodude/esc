@@ -12,6 +12,7 @@
 #define PARSERDEBUG 0
 
 
+int tabwidth = 8;
 
 static stack* vstack;
 static stack* ostack;
@@ -272,6 +273,11 @@ stack* parser(char* p)
 	stack_push(blocks, lines);
 
 	line* currline = malloc(sizeof(line));
+	line* prevline = NULL;
+
+	unsigned int indent = 0;
+
+	stack* indentstack = stack_new();
 
 	goto line;
 
@@ -280,16 +286,44 @@ newline:
 	printf("\\n\n");
 #endif
 
-	lineno++;
-	linestart = p;
-
-#if PARSERDEBUG >= 2
-	printf("Line %d\n", lineno);
-#endif
-
 	if (stack_peek(vstack) != NULL)
 	{
 		currline->operand = stack_pop(vstack);
+
+		if (currblock->hasindent)
+		{
+			if (prevline != NULL && indent > prevline->indent)
+			{
+#if PARSERDEBUG
+				printf("indent push: %d %d\n", prevline->indentdepth, prevline->indent);
+#endif
+				stack_push(indentstack, prevline);
+			}
+
+			line* indentparent;
+			while (indentparent = stack_peek(indentstack),
+				   indentparent != NULL && indentparent->indent >= indent)
+			{
+				line* oldindentparent = stack_pop(indentstack);
+#if PARSERDEBUG
+				printf("indent pop: %d %d\n", oldindentparent->indentdepth, oldindentparent->indent);
+#endif
+			}
+
+			currline->indent = indent;
+			currline->parent = indentparent;
+			currline->indentdepth = indentparent != NULL ? indentparent->indentdepth+1 : 0;
+#if PARSERDEBUG
+			printf("%d %d ", currline->indentdepth, currline->indent);
+			// no newline, continued at operand_print(currline->operand)
+#endif
+		}
+		else
+		{
+			currline->indent = 0;
+			currline->parent = NULL;
+			currline->indentdepth = 0;
+		}
 
 #if PARSERDEBUG
 		operand_print(currline->operand);
@@ -298,8 +332,18 @@ newline:
 
 		stack_push(lines, currline);
 
+		prevline = currline;
 		currline = malloc(sizeof(line));
 	}
+
+	lineno++;
+	linestart = p;
+
+#if PARSERDEBUG >= 3
+	printf("Line %d\n", lineno);
+#endif
+
+	indent = 0;
 
 	goto line;
 
@@ -314,9 +358,9 @@ line:
 		case '\'': p++; goto comment;
 		case '{' : eatblockcomment(&p); goto line;
 		case '\n':
-		case '\r': lineno++; linestart=p+1;
-		case ' ' :
-		case '\t': p++; goto line;
+		case '\r': indent = 0; lineno++; linestart=p+1; p++; goto line;
+		case ' ' : indent++;         p++; goto line;
+		case '\t': indent+=tabwidth; p++; goto line;
 	}
 
 	goto expr_entry;
@@ -500,6 +544,8 @@ ident:
 			operators = currblock->operators;
 			preoperators = currblock->preoperators;
 
+			indentstack->top = 0;
+
 			push = 0;
 		}
 	}
@@ -507,7 +553,7 @@ ident:
 	{
 		if (sym->type == SYM_BLOCK)
 		{
-			printf("Warning: block name not first token on line!\n");
+			printf("Error: block name not first token on line!\n");
 
 			goto error;
 		}
