@@ -1,6 +1,6 @@
 CFLAGS=-g -Og -std=c99
 #-fsanitize=address -fno-omit-frame-pointer
-LDFLAGS=
+LDFLAGS=-lm
 
 CC=gcc
 LD=gcc

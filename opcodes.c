@@ -3,8 +3,8 @@ operator_new("." ,  -1,  1,1);
 //operator_new("#" ,  -1,  1,1);
 
 operator_new("$",  -100, 0,1);
-operator_new("%",  -100, 0,1);
-operator_new("%%", -100, 0,1);
+//operator_new("%",  -100, 0,1);
+//operator_new("%%", -100, 0,1);
 
 operator_new("~" ,   0,  0,1);
 operator_new("~~",   0,  0,1);
@@ -342,8 +342,8 @@ block_select(conblock);
 
 /*
 operator_new("$",  -100, 0,1);
-operator_new("%",  -100, 0,1);
-operator_new("%%", -100, 0,1);
+//operator_new("%",  -100, 0,1);
+//operator_new("%%", -100, 0,1);
 
 operator_new("--",   0,  0,1);
 operator_new("--",   0,  1,0);

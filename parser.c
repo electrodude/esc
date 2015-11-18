@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <ctype.h>
 
+#include <math.h>
+
 #include "parser.h"
 #include "parserlib.h"
 
@@ -368,6 +370,7 @@ expr:
 		case '\t': p++; goto expr;
 		case '{' : eatblockcomment(&p); goto expr;
 		case '"' : goto string;
+		case '%' : p++; goto binnum;
 	}
 
 	currop = currop[tolower(*p)].next;
@@ -559,6 +562,7 @@ binnum:
 	if (*p == '%')
 	{
 		nbase = 4;
+		p++;
 	}
 	else
 	{
@@ -596,9 +600,12 @@ num_l:
 	}
 	else if (*p == '.')
 	{
-		// TODO: floats
-
-		printf("Can't do floats yet!\n");
+		p++;
+		goto num_float;
+	}
+	else if (nbase < 0xE && *p == 'e')
+	{
+		goto num_float;
 	}
 	else
 	{
@@ -610,8 +617,108 @@ num_l:
 
 	goto num_l;
 
+num_float:
+	;
+	float nf = n;
+	float exponent = 1/(float)nbase;
+
+num_float_l:
+#if PARSERDEBUG >= 3
+	printf("num_float: '%c'\n", *p);
+#endif
+	switch (*p)
+	{
+		case 0   : goto error;
+	}
+
+	digit = 0;
+	if (*p >= '0' && *p <= '9')
+	{
+		digit = *p - '0';
+	}
+	else if (nbase < 0xE && (*p == 'e' || *p == 'E'))
+	{
+		p++;
+		goto num_float_e;
+	}
+	else if (*p >= 'A' && *p <= 'Z')
+	{
+		digit = *p + 10 - 'A';
+	}
+	else if (*p >= 'a' && *p <= 'z')
+	{
+		digit = *p + 10 - 'z';
+	}
+	else if (*p == '_')
+	{
+		// eat underscores
+	}
+	else
+	{
+		goto num_float_done;
+	}
+
+	nf += digit * exponent;
+	exponent /= nbase;
+	p++;
+
+	goto num_float_l;
+
+num_float_e:
+	;
+	int sign = 1;
+
+	int e = 0;
+
+num_float_e_l:
+#if PARSERDEBUG >= 3
+	printf("num_float_e: '%c'\n", *p);
+#endif
+	switch (*p)
+	{
+		case 0   : goto error;
+	}
+
+	digit = 0;
+	if (*p >= '0' && *p <= '9')
+	{
+		digit = *p - '0';
+	}
+	else if (*p >= 'A' && *p <= 'Z')
+	{
+		digit = *p + 10 - 'A';
+	}
+	else if (*p >= 'a' && *p <= 'z')
+	{
+		digit = *p + 10 - 'z';
+	}
+	else if (*p == '_')
+	{
+		// eat underscores
+	}
+	else
+	{
+		nf *= powf(nbase, e);
+		goto num_float_done;
+	}
+
+	e = e * nbase + digit;
+	p++;
+
+	goto num_float_e_l;
+
+num_float_done:
+
+#if PARSERDEBUG >= 2
+	printf("num_float: %g\n", nf);
+#endif
+	n = *(plong*)&nf;
+
 num_done:
 
+#if PARSERDEBUG >= 2
+	printf("num: %d\n", n);
+#endif
 	stack_push(vstack, int_new(n));
 
 	goto operator;
