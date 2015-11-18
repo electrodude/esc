@@ -90,9 +90,8 @@ typedef struct operator
 	double precedence;
 	char* name;
 
-	unsigned int leftarg  : 1;
-	unsigned int rightarg : 1;
-	unsigned int bracket;
+	int leftarg;
+	int rightarg;
 } operator;
 
 // operator table
@@ -155,7 +154,7 @@ void grammar_pop(void);
 blockdef* block_new(char* s);
 void block_select(blockdef* block);
 
-operator* operator_new(char* p, double precedence, int leftarg, int rightarg, int bracket);
+operator* operator_new(char* p, double precedence, int leftarg, int rightarg);
 symbol* label_new(char* s);
 symbol* mod_new(char* s, const char* bits);
 opcode* opcode_new(char* s, const char* bits);

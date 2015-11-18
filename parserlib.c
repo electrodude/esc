@@ -79,32 +79,32 @@ void symbol_print(symbol* sym)
 	{
 		case SYM_LABEL:
 		{
-			printf("label");
+			printf("label ");
 			break;
 		}
 		case SYM_OPCODE:
 		{
-			printf("opcode");
+			printf("opcode ");
 			break;
 		}
 		case SYM_MODIFIER:
 		{
-			printf("modifier");
+			printf("modifier ");
 			break;
 		}
 		case SYM_BLOCK:
 		{
-			printf("block");
+			printf("block ");
 			break;
 		}
 		default:
 		{
-			printf("???");
+			//printf("??? ");
 			break;
 		}
 	}
 
-	printf(" %s", sym->name);
+	printf("%s", sym->name);
 }
 
 
@@ -140,7 +140,7 @@ static inline int operator_alias(optabentry* optab, char* p, operator* op, int o
 		operator* op2 = optab[0].op;
 
 #if LIBDEBUG
-		printf("operator \"%s\" already defined: \"%s\" (%d%d%d): ", s2, op2->name, op2->leftarg, op2->rightarg, op2->bracket);
+		printf("operator \"%s\" already defined: \"%s\" (%d, %d): ", s2, op2->name, op2->leftarg, op2->rightarg);
 #endif
 
 		if (!overwriteif || (op->leftarg && op2->leftarg))
@@ -170,21 +170,20 @@ static inline int operator_alias(optabentry* optab, char* p, operator* op, int o
 	return 0;
 }
 
-operator* operator_new(char* s, double precedence, int leftarg, int rightarg, int bracket)
+operator* operator_new(char* s, double precedence, int leftarg, int rightarg)
 {
 #if LIBDEBUG
-	printf("operator_new \"%s\" (%d%d%d, %g)\n", s, leftarg, rightarg, bracket, precedence);
+	printf("operator_new \"%s\" (%d, %d, %g)\n", s, leftarg, rightarg, precedence);
 #endif
 
 	operator* op = malloc(sizeof(operator));
 	op->precedence = precedence;
 	op->name = s;
 
-	op->leftarg = leftarg > 0;
+	op->leftarg = leftarg;
 	op->rightarg = rightarg;
-	op->bracket = bracket;
 
-	if (!leftarg)
+	if (leftarg == 0)
 	{
 		if (operator_alias(preoperators, s, op, 0))
 		{
@@ -193,7 +192,7 @@ operator* operator_new(char* s, double precedence, int leftarg, int rightarg, in
 		}
 	}
 
-	if (leftarg >= 0)
+	//if (leftarg >= 0)
 	{
 		if (operator_alias(operators, s, op, 1))
 		{

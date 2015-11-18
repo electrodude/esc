@@ -67,7 +67,7 @@ static void fold(operator* nextop)
 #if PARSERDEBUG
 	if (nextop != NULL)
 	{
-		printf("fold: nextop = \"%s\" (%d%d%d)\n", nextop->name, nextop->leftarg, nextop->rightarg, nextop->bracket);
+		printf("fold: nextop = \"%s\" (%d, %d)\n", nextop->name, nextop->leftarg, nextop->rightarg);
 	}
 	else
 	{
@@ -75,7 +75,7 @@ static void fold(operator* nextop)
 	}
 #endif
 
-	if (nextop != NULL && nextop->bracket && !nextop->leftarg)
+	if (nextop != NULL && nextop->leftarg == 0 && nextop->rightarg >= 2)
 	{
 		// don't fold if left bracket
 
@@ -94,85 +94,109 @@ static void fold(operator* nextop)
 
 	operator* topop;
 
-	int bracket = nextop != NULL ? nextop->bracket : 0;
-
-	while (topop = stack_peek(ostack), topop != NULL && (nextop == NULL || nextop->precedence >= topop->precedence) && ((nextop != NULL && topop->bracket == nextop->bracket) || !topop->bracket))
+	while (topop = stack_peek(ostack),
+	        topop != NULL // stop if stack is empty
+	        && (nextop == NULL // continue all the way if nextop == NULL
+		    || (nextop->leftarg >= 2 || (topop->rightarg < 2 && nextop->precedence >= topop->precedence)) // stop if right bracket or failed precedence test
+		   )
+	        //&& ((nextop != NULL && topop->rightarg == nextop->leftarg) || topop->rightarg == 0) // unless tos is left bracket, stop if mat
+	      )
 	{
-		operator* op = stack_pop(ostack);
+		topop = stack_pop(ostack);
 #if PARSERDEBUG
-		printf("fold: op \"%s\" (%d%d%d)\n", op->name, op->leftarg, op->rightarg, op->bracket);
+		printf("fold: op \"%s\" (%d, %d)\n", topop->name, topop->leftarg, topop->rightarg);
 #endif
 
-		if (op != NULL && op->bracket && op->rightarg && !op->leftarg)
+		if (topop != NULL && nextop != NULL && topop->leftarg == 0 && topop->rightarg >= 2 && nextop->leftarg >= 2 && nextop->rightarg == 0)
 		{
-#if PARERDEBUG
+#if PARSERDEBUG
 			printf("fold bracket break\n");
 #endif
-			bracket = 0;
 			break;
 		}
 
 		operand* rhs = NULL;
-		if (op->rightarg)
+		if (topop->rightarg)
 		{
 			rhs = stack_pop(vstack);
 			if (rhs == NULL)
 			{
-				printf("Error: rhs of '%s' (%d%d%d) == NULL!\n", op->name, op->leftarg, op->rightarg, op->bracket);
+				printf("Error: rhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
 				exit(1);
 			}
 		}
 
 		operand* lhs = NULL;
-		if (op->leftarg)
+		if (topop->leftarg)
 		{
 			lhs = stack_pop(vstack);
 			if (lhs == NULL)
 			{
-				printf("Error: lhs of '%s' (%d%d%d) == NULL!\n", op->name, op->leftarg, op->rightarg, op->bracket);
+				printf("Error: lhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
 				exit(1);
 			}
 		}
 
-		stack_push(vstack, binop_new(op, lhs, rhs));
+		stack_push(vstack, binop_new(topop, lhs, rhs));
 
-		if (op != NULL && op->bracket && op->rightarg)
+		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
 		{
-#if PARERDEBUG
+#if PARSERDEBUG
 			printf("fold function break\n");
 #endif
-			bracket = 0;
 			break;
 		}
 	}
 
-	operator* tos = stack_peek(ostack);
+#if PARSERDEBUG
+	printf("fold: done\n");
+#endif
 
-	if (nextop == NULL && tos != NULL && (tos->bracket && tos->rightarg))
+	topop = stack_peek(ostack);
+
+	if (topop != NULL && nextop != NULL && topop->rightarg >= 2 && nextop->leftarg >= 2 && topop->rightarg != nextop->leftarg)
 	{
-		printf("Error: unmatched left parentheses\n");
+		printf("Error: mismatched brackets\n");
 		exit(1);
 	}
 
-	if (nextop != NULL && bracket && nextop->leftarg && !nextop->rightarg)
+	if (nextop == NULL && topop != NULL && topop->rightarg >= 2)
 	{
-		if (tos == NULL)
+		printf("Error: unmatched left bracket\n");
+		exit(1);
+	}
+
+	if (topop == NULL && nextop && NULL && nextop->leftarg >= 2)
+	{
+		if (topop == NULL)
 		{
-			printf("Error: unmatched right parentheses! nextop = \"%s\" (%d%d%d), tos = ", nextop->name, nextop->leftarg, nextop->rightarg, nextop->bracket);
-			if (tos != NULL)
+			printf("Error: unmatched right bracket! nextop = ");
+			if (nextop != NULL)
 			{
-				printf("\"%s\" (%d%d%d)\n", tos->name, tos->leftarg, tos->rightarg, tos->bracket);
+				printf("\"%s\" (%d, %d)", nextop->name, nextop->leftarg, nextop->rightarg);
 			}
 			else
 			{
-				printf("NULL\n");
+				printf("NULL");
+			}
+
+			if (topop != NULL)
+			{
+				printf(", topop = \"%s\" (%d, %d)\n", topop->name, topop->leftarg, topop->rightarg);
+			}
+			else
+			{
+				printf(", topop = NULL\n");
 			}
 			exit(1);
 		}
 	}
 
-	if (nextop != NULL && !(nextop->bracket && !nextop->rightarg))
+	if (nextop != NULL && !(nextop->leftarg >= 2 && nextop->rightarg == 0))
 	{
+#if PARSERDEBUG >= 2
+		printf("fold: push\n");
+#endif
 		stack_push(ostack, nextop);
 	}
 
@@ -296,7 +320,7 @@ line:
 	goto expr_entry;
 
 comment:
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	printf("comment: '%c'\n", *p);
 #endif
 	switch (*p)
@@ -695,6 +719,8 @@ error:
 
 	goto line;
 #endif
+
+	return blocks;
 
 
 end:
