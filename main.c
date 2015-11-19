@@ -21,7 +21,7 @@ static inline char* strdup(const char* s)
 	return d;
 }
 
-static char* outpath;
+static char* outputfile;
 
 void compile_file(char* path)
 {
@@ -62,7 +62,7 @@ void compile_file(char* path)
 	{
 		block* currblock = blocks->base[i];
 		printf("\nblock \"%s\"\n", currblock->def->name);
-		stack/* of line */* lines = currblock->lines;
+		stack/* of line */ * lines = currblock->lines;
 		for (int j=0; j < lines->top; j++)
 		{
 			line* l = lines->base[j];
@@ -110,6 +110,7 @@ int main(int argc, char** argv)
 	stack* search_dirs = stack_new();
 	stack_push(search_dirs, ".");
 
+	char* outputfile = NULL;
 	char* langname = NULL;
 	char* procname = NULL;
 
@@ -135,9 +136,14 @@ int main(int argc, char** argv)
 
 			case 'o':
 			{
-				outpath = strdup(optarg);
+				if (outputfile != NULL && strcmp(outputfile, optarg))
+				{
+					puts("Error: conflicting output file arguments!");
+					usage();
+				}
+				outputfile = strdup(optarg);
 #if OPTDEBUG
-				printf("output file: %s\n", outpath);
+				printf("output file: %s\n", outputfile);
 #endif
 				break;
 			}
@@ -228,7 +234,7 @@ int main(int argc, char** argv)
 		usage();
 	}
 
-	char* inputpath = argv[optind++];
+	char* inputfile = argv[optind++];
 
 
 	if (optind < argc)
@@ -242,6 +248,15 @@ int main(int argc, char** argv)
 		usage();
 	}
 
+	if (outputfile == NULL)
+	{
+		size_t inputfile_len = strlen(inputfile);
+		outputfile = malloc(inputfile_len + 7 + 1);
+		strcpy(outputfile, inputfile);
 
-	compile_file(inputpath);
+		strncpy(&outputfile[inputfile_len], ".binary", 7);
+	}
+
+
+	compile_file(inputfile);
 }
