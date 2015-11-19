@@ -2,6 +2,10 @@
 
 #include "parallax_types.h"
 
+#include "bitfield.h"
+
+#include "stack.h"
+
 typedef uint16_t phaddr;
 typedef uint16_t pcaddr;
 
@@ -53,12 +57,13 @@ typedef struct block
 
 // symbol
 
+typedef struct operand operand;
+
 typedef enum symboltype
 {
 	SYM_UNKNOWN,
 	SYM_LABEL,
 	SYM_OPCODE,
-	SYM_MODIFIER,
 	SYM_BLOCK,
 } symboltype;
 
@@ -66,9 +71,8 @@ typedef struct symbol
 {
 	union
 	{
-		line* line;
+		operand* val;
 		opcode* op;
-		//?? mod;
 		blockdef* block;
 	} data;
 	char* name;
@@ -92,8 +96,6 @@ typedef struct symscope
 
 
 // instruction
-
-typedef struct operand operand;
 
 /*
 typedef struct instruction
@@ -150,6 +152,8 @@ typedef struct opcode
 {
 	opcode_func func;
 	void* data;
+
+	bitfield bits;
 	char* name;
 } opcode;
 
@@ -157,12 +161,11 @@ typedef struct opcode
 // expression
 typedef struct operand
 {
-	enum {INT, IDENT, REF, STRING, BINOP} type;
+	enum {INT, IDENT, PTR, STRING, BINOP} type;
 	union
 	{
 		plong val;
 		symbol* ident;
-		line* line;
 		char* str;
 		struct
 		{
@@ -197,8 +200,8 @@ blockdef* blockdef_new(char* s);
 
 operator* operator_new(char* p, double precedence, int leftarg, int rightarg);
 symbol* label_new(char* s);
-symbol* mod_new(char* s, const char* bits);
 opcode* opcode_new(char* s, const char* bits);
+symbol* modifier_new(char* s, const char* bits);
 
 
 

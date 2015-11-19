@@ -10,7 +10,7 @@
 
 #include "parser.h"
 
-#include "opcodes.c"
+#include "compiler.h"
 
 #define OPTDEBUG 0
 
@@ -25,57 +25,6 @@ static inline char* strdup(const char* s)
 }
 
 static char* outputfile;
-
-void compile_file(char* path)
-{
-	// load file
-	size_t slen = 65536;
-	size_t sused = 0;
-	char* s = malloc(slen);
-	FILE* f = fopen(path, "r");
-	size_t n_read = 0;
-	do
-	{
-		n_read = fread(&s[sused], slen - sused, 1, f);
-
-		//printf("read %d, used %d, total %d\n", n_read, sused, slen);
-
-		sused += n_read;
-
-		if (slen < sused - 256)
-		{
-			s = realloc(s, slen *= 2);
-		}
-	} while (n_read);
-	fclose(f);
-
-	stack/*of block*/ * blocks = parser(s);
-
-	free(s);
-
-	printf("AST:\n");
-
-	if (blocks == NULL)
-	{
-		printf("NULL\n");
-		return;
-	}
-
-	for (int i=0; i < blocks->top; i++)
-	{
-		block* currblock = blocks->base[i];
-		printf("\nblock \"%s\"\n", currblock->def->name);
-		stack/* of line */ * lines = currblock->lines;
-		for (int j=0; j < lines->top; j++)
-		{
-			line* l = lines->base[j];
-			printf("%d ", l->indentdepth);
-			operand_print(l->operand);
-			printf("\n");
-
-		}
-	}
-}
 
 static void usage(void)
 {
@@ -107,6 +56,8 @@ static void usage(void)
 }
 
 // main
+
+grammardef* register_spin(void);
 
 int main(int argc, char** argv)
 {

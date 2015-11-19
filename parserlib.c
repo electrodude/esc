@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "stack.h"
-
 #include "parserlib.h"
 
 #define LIBDEBUG 0
@@ -122,11 +120,6 @@ void symbol_print(symbol* sym)
 		case SYM_OPCODE:
 		{
 			printf("opcode ");
-			break;
-		}
-		case SYM_MODIFIER:
-		{
-			printf("modifier ");
 			break;
 		}
 		case SYM_BLOCK:
@@ -426,24 +419,6 @@ symbol* label_new(char* s)
 	return sym;
 }
 
-symbol* mod_new(char* s, const char* bits)
-{
-	symbol* sym = symbol_define(s, SYM_MODIFIER);
-
-	if (sym == NULL) return NULL;
-
-	/*
-	opcode* op = malloc(sizeof(opcode));
-
-	op->name = s;
-	//op->bits = bitfield_new_s(bits);
-
-	sym->data.op = op;
-	*/
-
-	return sym;
-}
-
 opcode* opcode_new(char* s, const char* bits)
 {
 	symbol* sym = symbol_define(s, SYM_OPCODE);
@@ -452,12 +427,30 @@ opcode* opcode_new(char* s, const char* bits)
 
 	opcode* op = malloc(sizeof(opcode));
 
+	op->bits = bitfield_new_s(bits);
 	op->name = s;
-	//op->bits = bitfield_new_s(bits);
 
 	sym->data.op = op;
 
 	return op;
+}
+
+symbol* modifier_new(char* s, const char* bits)
+{
+	symbol* sym = symbol_define(s, SYM_OPCODE);
+
+	if (sym == NULL) return NULL;
+
+	opcode* op = malloc(sizeof(opcode));
+
+	op->func = NULL;
+	op->data = NULL;
+	op->bits = bitfield_new_s(bits);
+	op->name = s;
+
+	sym->data.op = op;
+
+	return sym;
 }
 
 
@@ -467,16 +460,6 @@ operand* int_new(plong x)
 
 	this->type = INT;
 	this->val.val = x;
-
-	return this;
-}
-
-operand* ref_new(line* l)
-{
-	operand* this = malloc(sizeof(operand));
-
-	this->type = REF;
-	this->val.line = l;
 
 	return this;
 }
@@ -678,10 +661,10 @@ void operand_print(operand* this)
 
 			break;
 		}
-		case REF:
+		case PTR:
 		{
 			//printf("[%s]", this->val.line->name);
-			printf("[line]");
+			printf("[ptr]");
 
 			break;
 		}

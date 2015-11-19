@@ -10,22 +10,25 @@ all:		esc
 clean:
 		rm -vf *.o esc
 
-esc:		main.o parser.o parserlib.o stack.o
+esc:		main.o compiler.o parser.o parserlib.o stack.o bitfield.o opcodes.o
 		${LD} ${LDFLAGS} $^ -o $@
 
 %.o:		%.c
 		${CC} ${CFLAGS} $< -c -o $@
 
 depend:
-		$(CC) $(CCFLAGS) -MM main.c {parser,parserlib,stack}.{c,h} parallax_types.h
+		$(CC) $(CCFLAGS) -MM {main,compiler,parser,parserlib,stack,bitfield}.c parallax_types.h opcodes.c
 
 .PHONY:		all depend clean
 
-main.o: main.c parser.h parallax_types.h stack.h parserlib.h opcodes.c
-parser.o: parser.c parser.h parallax_types.h stack.h parserlib.h
-parser.o: parser.h parallax_types.h stack.h
-parserlib.o: parserlib.c stack.h parserlib.h parallax_types.h
-parserlib.o: parserlib.h parallax_types.h
+main.o: main.c stack.h parserlib.h parallax_types.h bitfield.h parser.h \
+ compiler.h
+compiler.o: compiler.c stack.h parserlib.h parallax_types.h bitfield.h \
+ parser.h compiler.h
+parser.o: parser.c parser.h parallax_types.h stack.h parserlib.h \
+ bitfield.h
+parserlib.o: parserlib.c parserlib.h parallax_types.h bitfield.h stack.h
 stack.o: stack.c stack.h
-stack.o: stack.h
+bitfield.o: bitfield.c bitfield.h parallax_types.h
 parallax_types.o: parallax_types.h
+opcodes.o: opcodes.c parserlib.h parallax_types.h bitfield.h stack.h
