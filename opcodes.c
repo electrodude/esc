@@ -64,7 +64,7 @@ operator_new("[",  -10, 1,3); // array index
 operator_new("]",   10, 3,0);
 
 grammar_push();
-blockdef* objblock = block_new("obj");
+blockdef* objblock = blockdef_new("obj");
 
 operator_new(":",    16, 1,1);
 
@@ -73,7 +73,7 @@ grammar_pop();
 
 
 grammar_push();
-blockdef* conblock = block_new("con");
+blockdef* conblock = blockdef_new("con");
 
 operator_new("#" ,   0,  0,1); // check precedence of this
 operator_new("=",    12, 1,1);
@@ -82,7 +82,7 @@ operator_new(",",    13, 1,1);
 grammar_pop();
 
 grammar_push();
-blockdef* varblock = block_new("var");
+blockdef* varblock = blockdef_new("var");
 
 operator_new(",",    13, 1,1);
 operator_new("",     15, 1,1);
@@ -96,9 +96,9 @@ label_new("long");
 grammar_pop();
 
 grammar_push();
-blockdef* pubblock = block_new("pub");
+blockdef* pubblock = blockdef_new("pub");
 pubblock->hasindent = 1;
-blockdef* priblock = block_new("pri");
+blockdef* priblock = blockdef_new("pri");
 priblock->hasindent = 1;
 
 operator_new("\\" ,  -2,  0,1); // \try
@@ -157,7 +157,7 @@ operator_new("",     15, 1,1);
 grammar_pop();
 
 grammar_push();
-blockdef* datblock = block_new("dat");
+blockdef* datblock = blockdef_new("dat");
 datblock->haslabels = 1;
 
 operator_new("#" ,   0,  0,1); // check precedence of this
@@ -341,7 +341,7 @@ mod_new("nr", "");
 grammar_pop();
 
 
-block_select(conblock);
+blockdef_select(conblock);
 
 
 // operators

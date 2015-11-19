@@ -60,8 +60,9 @@ void compile_file(char* path)
 
 	for (int i=0; i < blocks->top; i++)
 	{
-		printf("\nblock\n");
-		stack/* of line */* lines = blocks->base[i];
+		block* currblock = blocks->base[i];
+		printf("\nblock \"%s\"\n", currblock->def->name);
+		stack/* of line */* lines = currblock->lines;
 		for (int j=0; j < lines->top; j++)
 		{
 			line* l = lines->base[j];

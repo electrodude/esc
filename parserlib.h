@@ -31,9 +31,19 @@ typedef struct blockdef
 	optabentry* operators;
 	optabentry* preoperators;
 
+	char* name;
+
 	int haslabels : 1;
 	int hasindent : 1;
 } blockdef;
+
+typedef struct block
+{
+	blockdef* def;
+	stack* lines;
+
+	char* name;
+} block;
 
 // symbol
 
@@ -152,11 +162,15 @@ typedef struct operand
 symbol* symbol_get(char* p);
 symbol* symbol_define(char* s, symboltype type);
 
+void symbol_print(symbol* sym);
+
 void grammar_push(void);
 void grammar_pop(void);
 
-blockdef* block_new(char* s);
-void block_select(blockdef* block);
+block* block_new(stack* blocks, blockdef* def, stack** lines);
+
+blockdef* blockdef_new(char* s);
+void blockdef_select(blockdef* block);
 
 operator* operator_new(char* p, double precedence, int leftarg, int rightarg);
 symbol* label_new(char* s);
@@ -171,8 +185,6 @@ operand* ident_new(char* s);
 operand* ident_new_intern(char** p);
 operand* string_new(char* s);
 operand* binop_new(operator* op, operand* lhs, operand* rhs);
-
-void symbol_print(symbol* sym);
 
 void operand_print(operand* this);
 

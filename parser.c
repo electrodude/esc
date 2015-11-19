@@ -306,18 +306,18 @@ stack* parser(char* p)
 	char* lastgloballabel = "!begin";
 
 
-	blockdef* currblock = symbol_get("con")->data.block;
+	blockdef* currblockdef = symbol_get("con")->data.block;
 
-	symbols = currblock->symbols;
-	operators = currblock->operators;
-	preoperators = currblock->preoperators;
+	symbols = currblockdef->symbols;
+	operators = currblockdef->operators;
+	preoperators = currblockdef->preoperators;
 
 
 	stack* blocks = stack_new();
 
-	stack* lines = stack_new();
+	stack* lines;
 
-	stack_push(blocks, lines);
+	block_new(blocks, currblockdef, &lines);
 
 	line* currline = malloc(sizeof(line));
 	line* prevline = NULL;
@@ -337,7 +337,7 @@ newline:
 	{
 		currline->operand = stack_pop(vstack);
 
-		if (currblock->hasindent)
+		if (currblockdef->hasindent)
 		{
 			if (prevline != NULL && indent > prevline->indent)
 			{
@@ -469,7 +469,7 @@ expr:
 	}
 
 	if (*p >= '0' && *p <= '9') goto decnum;
-	if (islabelchar[*p] >= 3 || (currblock->haslabels && islabelchar[*p] == 1)) goto ident;
+	if (islabelchar[*p] >= 3 || (currblockdef->haslabels && islabelchar[*p] == 1)) goto ident;
 
 	if ((*p == '\n' || *p == '\r') && stack_peek(vstack) == NULL)
 	{
@@ -514,7 +514,7 @@ expr:
 ident:
 	ts = p;
 ident_l:
-	while (*p && (islabelchar[*p] >= (currblock->haslabels ? 1 : 2)))
+	while (*p && (islabelchar[*p] >= (currblockdef->haslabels ? 1 : 2)))
 	{
 #if PARSERDEBUG >= 4
 		printf("ident: '%c'\n", *p);
@@ -586,7 +586,7 @@ ident_l:
 
 	if (stack_peek(vstack) == NULL)
 	{
-		if (currblock->haslabels)
+		if (currblockdef->haslabels)
 		{
 			// DAT blocks have local labels, which we need to scope now
 			if (sym->type == SYM_UNKNOWN)
@@ -612,15 +612,13 @@ ident_l:
 			printf("\nBlock \"%s\"\n", s);
 #endif
 
-			lines = stack_new();
+			currblockdef = sym->data.block;
 
-			stack_push(blocks, lines);
+			block_new(blocks, currblockdef, &lines);
 
-			currblock = sym->data.block;
-
-			symbols = currblock->symbols;
-			operators = currblock->operators;
-			preoperators = currblock->preoperators;
+			symbols = currblockdef->symbols;
+			operators = currblockdef->operators;
+			preoperators = currblockdef->preoperators;
 
 			indentstack->top = 0;
 

@@ -107,6 +107,107 @@ void symbol_print(symbol* sym)
 	printf("%s", sym->name);
 }
 
+block* block_new(stack* blocks, blockdef* def, stack** lines)
+{
+	block* blk = malloc(sizeof(block));
+	blk->def = def;
+	blk->lines = stack_new();
+
+	stack_push(blocks, blk);
+	*lines = blk->lines;
+
+	return blk;
+}
+
+
+
+
+static optabentry* optabentry_clone(optabentry* optab)
+{
+	if (optab == NULL)
+	{
+		return NULL;
+	}
+
+	optabentry* optab2 = calloc(256, sizeof(optabentry));
+
+	optab2[0].op = optab[0].op;
+
+	for (int i=1; i < 256; i++)
+	{
+		optab2[i].next = optabentry_clone(optab[i].next);
+	}
+
+	return optab2;
+}
+
+static stack* grammarstack;
+
+void grammar_push(void)
+{
+	// save old grammar
+	// abuse struct blockdef since it has all the fields we need
+	blockdef* block = malloc(sizeof(blockdef));
+
+	block->symbols = symbols;
+	block->operators = operators;
+	block->preoperators = preoperators;
+
+	stack_push(grammarstack, block);
+
+	// clone old grammar
+
+	//symbols = symtabentry_clone(symbols);
+	operators = optabentry_clone(operators);
+	preoperators = optabentry_clone(preoperators);
+}
+
+void grammar_pop(void)
+{
+	blockdef* block = stack_pop(grammarstack);
+
+	if (block == NULL)
+	{
+		printf("Grammar stack underflow!\n");
+		exit(1);
+	}
+
+	symbols = block->symbols;
+	operators = block->operators;
+	preoperators = block->preoperators;
+
+	free(block);
+}
+
+
+blockdef* blockdef_new(char* s)
+{
+	symbol* sym = symbol_define(s, SYM_BLOCK);
+
+	if (sym == NULL) return NULL;
+
+	blockdef* block = malloc(sizeof(blockdef));
+
+	block->symbols = symbols;
+	block->operators = operators;
+	block->preoperators = preoperators;
+
+	block->haslabels = 0;
+
+	block->name = s;
+
+	sym->data.block = block;
+
+	return block;
+}
+
+void blockdef_select(blockdef* block)
+{
+	symbols = block->symbols;
+	operators = block->operators;
+	preoperators = block->preoperators;
+}
+
 
 // operator
 
@@ -208,88 +309,6 @@ operator* operator_new(char* s, double precedence, int leftarg, int rightarg)
 	return op;
 }
 
-static optabentry* optabentry_clone(optabentry* optab)
-{
-	if (optab == NULL)
-	{
-		return NULL;
-	}
-
-	optabentry* optab2 = calloc(256, sizeof(optabentry));
-
-	optab2[0].op = optab[0].op;
-
-	for (int i=1; i < 256; i++)
-	{
-		optab2[i].next = optabentry_clone(optab[i].next);
-	}
-
-	return optab2;
-}
-
-static stack* grammarstack;
-
-void grammar_push(void)
-{
-	// save old grammar
-	blockdef* block = malloc(sizeof(blockdef));
-
-	block->symbols = symbols;
-	block->operators = operators;
-	block->preoperators = preoperators;
-
-	stack_push(grammarstack, block);
-
-	// and clone it
-
-	//symbols = symtabentry_clone(symbols);
-	operators = optabentry_clone(operators);
-	preoperators = optabentry_clone(preoperators);
-}
-
-void grammar_pop(void)
-{
-	blockdef* block = stack_pop(grammarstack);
-
-	if (block == NULL)
-	{
-		printf("Grammar stack underflow!\n");
-		exit(1);
-	}
-
-	symbols = block->symbols;
-	operators = block->operators;
-	preoperators = block->preoperators;
-
-	free(block);
-}
-
-
-blockdef* block_new(char* s)
-{
-	symbol* sym = symbol_define(s, SYM_BLOCK);
-
-	if (sym == NULL) return NULL;
-
-	blockdef* block = malloc(sizeof(blockdef));
-
-	block->symbols = symbols;
-	block->operators = operators;
-	block->preoperators = preoperators;
-
-	block->haslabels = 0;
-
-	sym->data.block = block;
-
-	return block;
-}
-
-void block_select(blockdef* block)
-{
-	symbols = block->symbols;
-	operators = block->operators;
-	preoperators = block->preoperators;
-}
 
 symbol* label_new(char* s)
 {
