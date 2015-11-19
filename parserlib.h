@@ -22,19 +22,25 @@ typedef struct line line;
 
 
 typedef union symtabentry symtabentry;
+typedef struct symscope symscope;
 typedef union optabentry optabentry;
 
-
-typedef struct blockdef
+typedef struct grammardef
 {
-	symtabentry* symbols;
+	symscope* symbols;
 	optabentry* operators;
 	optabentry* preoperators;
 
-	char* name;
-
 	int haslabels : 1;
 	int hasindent : 1;
+} grammardef;
+
+typedef struct blockdef
+{
+	grammardef* headergrammar;
+	grammardef* grammar;
+
+	char* name;
 } blockdef;
 
 typedef struct block
@@ -78,7 +84,12 @@ typedef union symtabentry
 	symbol* sym;
 } symtabentry;
 
-extern symtabentry* symbols;
+typedef struct symscope
+{
+	symtabentry* symtab;
+	struct symscope* parent;
+} symscope;
+
 
 // instruction
 
@@ -103,6 +114,10 @@ typedef struct operator
 
 	int leftarg;
 	int rightarg;
+
+	int push : 1;
+
+	grammardef* grammar;
 } operator;
 
 // operator table
@@ -113,8 +128,7 @@ typedef union optabentry
 	operator* op;
 } optabentry;
 
-extern optabentry* operators;
-extern optabentry* preoperators;
+extern grammardef* grammar;
 
 
 // line
@@ -160,12 +174,21 @@ typedef struct operand
 
 
 symbol* symbol_get(char* p);
+symbol* symbol_get_if_exist(symtabentry* base, char* p);
 symbol* symbol_define(char* s, symboltype type);
 
 void symbol_print(symbol* sym);
 
-void grammar_push(void);
-void grammar_pop(void);
+symtabentry* symtabentry_new(void);
+symtabentry* symtabentry_get(symtabentry* base, char* p);
+
+void symscope_push(symtabentry* symtab);
+symtabentry* symscope_pop(void);
+
+grammardef* grammar_new(symscope* symbols, optabentry* operators, optabentry* preoperators, int haslabels, int hasindent);
+void grammar_push(grammardef* newgrammar);
+grammardef* grammar_pop(void);
+grammardef* grammarstack_print(void);
 
 block* block_new(stack* blocks, blockdef* def, stack** lines);
 

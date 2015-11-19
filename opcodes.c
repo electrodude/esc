@@ -57,13 +57,13 @@ operator_new("or",   11, 1,1);
 
 operator_new("(",   -10, 1,2); // function call
 operator_new("(",    10, 0,2);
-operator_new(")",    10, 2,0);
+operator_new(")",    10, 2,0)->push = 0;
 
 operator_new("[",  -10, 1,3); // array index
 //operator_new("[",   10, 0,3); // unused [val] notation
 operator_new("]",   10, 3,0);
 
-grammar_push();
+grammar_push(NULL);
 blockdef* objblock = blockdef_new("obj");
 
 operator_new(":",    16, 1,1);
@@ -72,7 +72,7 @@ grammar_pop();
 
 
 
-grammar_push();
+grammar_push(NULL);
 blockdef* conblock = blockdef_new("con");
 
 operator_new("#" ,   0,  0,1); // check precedence of this
@@ -81,7 +81,7 @@ operator_new(",",    13, 1,1);
 
 grammar_pop();
 
-grammar_push();
+grammar_push(NULL);
 blockdef* varblock = blockdef_new("var");
 
 operator_new(",",    13, 1,1);
@@ -95,11 +95,11 @@ label_new("long");
 
 grammar_pop();
 
-grammar_push();
+grammar_push(NULL);
 blockdef* pubblock = blockdef_new("pub");
-pubblock->hasindent = 1;
 blockdef* priblock = blockdef_new("pri");
-priblock->hasindent = 1;
+
+grammar->hasindent = 1;
 
 operator_new("\\" ,  -2,  0,1); // \try
 
@@ -149,16 +149,35 @@ operator_new("or=",  11, 1,1);
 
 operator_new(":=",   12, 1,1);
 
-operator_new("..",   12.5,  1,1);
+operator_new("..",   12.5,1,1);
 operator_new(",",    13, 1,1);
 operator_new(":",    14, 1,-1);
 operator_new("",     15, 1,1);
 
 grammar_pop();
 
-grammar_push();
+grammar_push(grammar_new(grammar->symbols, NULL, NULL, 0, 0));
+
+//operator_new("(",   -10, 1,2); // function args
+operator_new("(",    10, 0,2);
+operator_new(")",    10, 2,0);
+
+operator_new("[",  -10, 1,3)->grammar = pubblock->grammar; // array size
+operator_new(",",    0, 1,1);
+operator_new(":",    1, 0,1);
+operator_new("|",    1, 0,1);
+
+operator_new("",     15, 1,1);
+
+
+pubblock->headergrammar = grammar;
+priblock->headergrammar = grammar;
+grammar_pop();
+
+grammar_push(NULL);
 blockdef* datblock = blockdef_new("dat");
-datblock->haslabels = 1;
+
+grammar->haslabels = 1;
 
 operator_new("#" ,   0,  0,1); // check precedence of this
 operator_new(",",    13, 1,1);

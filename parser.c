@@ -78,6 +78,14 @@ static void fold(operator* nextop)
 	}
 #endif
 
+	if (nextop != NULL && nextop->grammar != NULL)
+	{
+#if PARSERDEBUG >= 2
+		printf("op grammar push\n");
+#endif
+		grammar_push(nextop->grammar);
+	}
+
 	if (nextop != NULL && nextop->leftarg == 0 && nextop->rightarg >= 2)
 	{
 		// don't fold if left bracket
@@ -86,13 +94,9 @@ static void fold(operator* nextop)
 		printf("fold: left bracket, no fold\n");
 #endif
 
-		stack_push(ostack, nextop);
+		// BAD: duplicate of the end of this function
 
-#if PARSERDEBUG >= 3
-		printstacks();
-#endif
-
-		return;
+		goto folddone;
 	}
 
 	operator* topop;
@@ -151,11 +155,25 @@ static void fold(operator* nextop)
 			}
 		}
 
+		if (topop->grammar != NULL)
+		{
+#if PARSERDEBUG >= 2
+			printf("op grammar pop\n");
+#endif
+			grammardef* oldgrammar = grammar_pop();
+
+			if (oldgrammar != topop->grammar)
+			{
+				printf("Mismatched grammar pop! %p, %p, %p\n", oldgrammar, topop->grammar, nextop != NULL ? nextop->grammar : NULL);
+				exit(1);
+			}
+		}
+
 		stack_push(vstack, binop_new(topop, lhs, rhs));
 
 		if (hash_hack)
 		{
-			stack_push(ostack, operators[0].op);
+			stack_push(ostack, grammar->operators[0].op);
 		}
 
 		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
@@ -213,7 +231,8 @@ folded:
 		}
 	}
 
-	if (nextop != NULL && !(nextop->leftarg >= 2 && nextop->rightarg == 0))
+folddone:
+	if (nextop != NULL && nextop->push)
 	{
 #if PARSERDEBUG >= 3
 		printf("fold: push\n");
@@ -308,9 +327,11 @@ stack* parser(char* p)
 
 	blockdef* currblockdef = symbol_get("con")->data.block;
 
-	symbols = currblockdef->symbols;
-	operators = currblockdef->operators;
-	preoperators = currblockdef->preoperators;
+
+#if PARSERDEBUG >= 3
+	printf("grammar\n");
+#endif
+	grammar = currblockdef->grammar; // should this be headergrammar instead?
 
 
 	stack* blocks = stack_new();
@@ -333,11 +354,16 @@ newline:
 	printf("\\n\n");
 #endif
 
+#if PARSERDEBUG >= 3
+	printf("grammar\n");
+#endif
+	grammar = currblockdef->grammar;
+
 	if (stack_peek(vstack) != NULL)
 	{
 		currline->operand = stack_pop(vstack);
 
-		if (currblockdef->hasindent)
+		if (grammar->hasindent)
 		{
 			if (prevline != NULL && indent > prevline->indent)
 			{
@@ -405,7 +431,13 @@ line:
 		case '\'': p++; goto comment;
 		case '{' : eatblockcomment(&p); goto line;
 		case '\n':
-		case '\r': indent = 0; lineno++; linestart=p+1; p++; goto line;
+		case '\r': indent = 0; lineno++; linestart=p+1; p++;
+#if PARSERDEBUG >= 3
+		           printf("grammar\n");
+#endif
+		           grammar = currblockdef->grammar;
+		           goto line;
+
 		case ' ' : indent++;         p++; goto line;
 		case '\t': indent+=tabwidth; p++; goto line;
 	}
@@ -452,7 +484,7 @@ expr:
 #if PARSERDEBUG >= 3
 	printf("expr: '%c'\n", *p);
 #endif
-	currop = preoperators;
+	currop = grammar->preoperators;
 
 	switch (*p)
 	{
@@ -469,7 +501,7 @@ expr:
 	}
 
 	if (*p >= '0' && *p <= '9') goto decnum;
-	if (islabelchar[*p] >= 3 || (currblockdef->haslabels && islabelchar[*p] == 1)) goto ident;
+	if (islabelchar[*p] >= 3 || (grammar->haslabels && islabelchar[*p] == 1)) goto ident;
 
 	if ((*p == '\n' || *p == '\r') && stack_peek(vstack) == NULL)
 	{
@@ -514,7 +546,7 @@ expr:
 ident:
 	ts = p;
 ident_l:
-	while (*p && (islabelchar[*p] >= (currblockdef->haslabels ? 1 : 2)))
+	while (*p && (islabelchar[*p] >= (grammar->haslabels ? 1 : 2)))
 	{
 #if PARSERDEBUG >= 4
 		printf("ident: '%c'\n", *p);
@@ -582,11 +614,9 @@ ident_l:
 
 	symbol* sym = val->val.ident;
 
-	int push = 1;
-
 	if (stack_peek(vstack) == NULL)
 	{
-		if (currblockdef->haslabels)
+		if (grammar->haslabels)
 		{
 			// DAT blocks have local labels, which we need to scope now
 			if (sym->type == SYM_UNKNOWN)
@@ -616,13 +646,14 @@ ident_l:
 
 			block_new(blocks, currblockdef, &lines);
 
-			symbols = currblockdef->symbols;
-			operators = currblockdef->operators;
-			preoperators = currblockdef->preoperators;
+#if PARSERDEBUG >= 3
+			printf("headergrammar\n");
+#endif
+			grammar = currblockdef->headergrammar;
 
 			indentstack->top = 0;
 
-			push = 0;
+			goto line;
 		}
 	}
 	else
@@ -635,16 +666,9 @@ ident_l:
 		}
 	}
 
-	if (push)
-	{
-		stack_push(vstack, val);
+	stack_push(vstack, val);
 
-		goto operator;
-	}
-	else
-	{
-		goto line;
-	}
+	goto operator;
 
 
 string:
@@ -721,7 +745,7 @@ num_l:
 		// eat underscores
 	}
 	else if (*p == '.' && /* check for operator starting with . */
-	                      (operators['.'].next == NULL || operators['.'].next[tolower(p[1])].next == NULL))
+	                      (grammar->operators['.'].next == NULL || grammar->operators['.'].next[tolower(p[1])].next == NULL))
 	{
 		p++;
 		goto num_float;
@@ -858,7 +882,7 @@ here_or_hex:
 	goto operator;
 
 operator:
-	currop = operators;
+	currop = grammar->operators;
 
 #if PARSERDEBUG >= 4
 	printf("operator char: '%c'\n", *p);
@@ -892,8 +916,17 @@ operator_mid:
 
 	if (op == NULL)
 	{
-		fold(operators[0].op);
+		fold(grammar->operators[0].op);
+/*
+// TODO: Running this commented out results in an infinte loop.  Commenting this
+//  out and just leaving the "goto ident" seems to result in some, if not all,
+//  undefined operators getting through and being registered as the null ""
+//  operator.
+#if PARSERDEBUG >= 3
+		printf("ident->op backtrack\n");
+#endif
 		p = ts; // backtracking! Blech!
+*/
 		goto ident;
 	}
 
@@ -904,7 +937,7 @@ operator_mid:
 
 	if (!op->leftarg)
 	{
-		fold(operators[0].op);
+		fold(grammar->operators[0].op);
 	}
 
 	fold(op);
@@ -921,6 +954,8 @@ operator_mid:
 
 error:
 	printf("Parse error at %d:%ld: '%c' (%02X)\n", lineno, p-linestart, *p, *p);
+
+	return NULL;
 
 #if 0
 	while (*p != 0 && *p != '\n' && *p != '\r') p++;

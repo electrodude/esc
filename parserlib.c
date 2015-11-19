@@ -11,19 +11,67 @@
 
 // symbol table
 
-symtabentry* symbols;
 
-optabentry* operators;
-optabentry* preoperators;
+grammardef* grammar;
 
 
 symbol* symbol_get(char* p)
 {
-	char* s2 = p;
+	symbol* sym = NULL;
 
-	symtabentry* symtab = symbols;
+	for (symscope* scope = grammar->symbols; scope != NULL && sym == NULL; scope = scope->parent)
+	{
+		sym = symbol_get_if_exist(scope->symtab, p);
+	}
 
-	//printf("symbol_get(\"%s\"): ", p);
+	if (sym != NULL)
+	{
+		return sym;
+	}
+
+	sym = malloc(sizeof(symbol));
+	sym->type = SYM_UNKNOWN;
+	sym->name = p;
+	sym->defined = 0;
+
+	symtabentry* symtab = symtabentry_get(grammar->symbols->symtab, p);
+
+	symtab[0].sym = sym;
+
+	return sym;
+}
+
+symbol* symbol_get_if_exist(symtabentry* base, char* p)
+{
+	symtabentry* symtab = base;
+
+	while (*p != 0)
+	{
+#if LIBDEBUG >= 2
+		putchar(*p);
+#endif
+		unsigned char c = tolower(*p);
+
+		symtab = symtab[c].next;
+
+		if (symtab == NULL)
+		{
+			return NULL;
+		}
+
+		p++;
+	}
+#if LIBDEBUG >= 2
+	putchar('\n');
+#endif
+
+	return symtab[0].sym;
+}
+
+symtabentry* symtabentry_get(symtabentry* base, char* p)
+{
+	symtabentry* symtab = base;
+
 	while (*p != 0)
 	{
 #if LIBDEBUG >= 2
@@ -34,7 +82,7 @@ symbol* symbol_get(char* p)
 		symtabentry* symtab2 = symtab[c].next;
 		if (symtab2 == NULL)
 		{
-			symtab2 = symtab[c].next = calloc(256,sizeof(symtabentry));
+			symtab2 = symtab[c].next = symtabentry_new();
 		}
 		symtab = symtab2;
 		p++;
@@ -42,19 +90,8 @@ symbol* symbol_get(char* p)
 #if LIBDEBUG >= 2
 	putchar('\n');
 #endif
-	if (symtab[0].sym == NULL)
-	{
-		symbol* sym = malloc(sizeof(symbol));
-		sym->type = SYM_UNKNOWN;
-		sym->name = s2;
-		sym->defined = 0;
 
-		symtab[0].sym = sym;
-
-		return sym;
-	}
-
-	return symtab[0].sym;
+	return symtab;
 }
 
 symbol* symbol_define(char* s, symboltype type)
@@ -121,6 +158,47 @@ block* block_new(stack* blocks, blockdef* def, stack** lines)
 
 
 
+symtabentry* symtabentry_new(void)
+{
+	return calloc(256, sizeof(symtabentry));
+}
+
+void symscope_push(symtabentry* symtab)
+{
+	symscope* oldsymbols = grammar->symbols;
+
+	symscope* symbols = malloc(sizeof(symscope));
+	symbols->parent = oldsymbols;
+
+	if (symtab == NULL)
+	{
+		symtab = symtabentry_new();
+	}
+
+	symbols->symtab = symtab;
+
+	grammar->symbols = symbols;
+}
+
+symtabentry* symscope_pop(void)
+{
+	symscope* newsymbols = grammar->symbols->parent;
+
+	symtabentry* symtab = grammar->symbols->symtab;
+
+	symscope* oldsymbols = grammar->symbols;
+
+	grammar->symbols = newsymbols;
+
+	free(oldsymbols);
+
+	return symtab;
+}
+
+static optabentry* optabentry_new(void)
+{
+	return calloc(256, sizeof(optabentry));
+}
 
 static optabentry* optabentry_clone(optabentry* optab)
 {
@@ -143,40 +221,68 @@ static optabentry* optabentry_clone(optabentry* optab)
 
 static stack* grammarstack;
 
-void grammar_push(void)
+grammardef* grammar_new(symscope* symbols, optabentry* operators, optabentry* preoperators, int haslabels, int hasindent)
 {
-	// save old grammar
-	// abuse struct blockdef since it has all the fields we need
-	blockdef* block = malloc(sizeof(blockdef));
+	grammardef* newgrammar = malloc(sizeof(grammardef));
 
-	block->symbols = symbols;
-	block->operators = operators;
-	block->preoperators = preoperators;
+	//newgrammar->symbols = symbols != NULL ? symbols : symscope_push();
+	newgrammar->symbols = symbols;
+	newgrammar->operators = operators != NULL ? operators : optabentry_new();
+	newgrammar->preoperators = preoperators != NULL ? preoperators : optabentry_new();
 
-	stack_push(grammarstack, block);
+	newgrammar->haslabels = haslabels;
+	newgrammar->hasindent = hasindent;
 
-	// clone old grammar
-
-	//symbols = symtabentry_clone(symbols);
-	operators = optabentry_clone(operators);
-	preoperators = optabentry_clone(preoperators);
+	return newgrammar;
 }
 
-void grammar_pop(void)
+void grammar_push(grammardef* newgrammar)
 {
-	blockdef* block = stack_pop(grammarstack);
+	// save old grammardef
+	grammardef* oldgrammar = grammar;
 
-	if (block == NULL)
+	stack_push(grammarstack, grammar);
+
+
+	// make new grammardef if newgrammar == NULL
+	grammar = newgrammar != NULL ? newgrammar :
+	           grammar_new(oldgrammar->symbols,
+	                       optabentry_clone(oldgrammar->operators),
+			       optabentry_clone(oldgrammar->preoperators),
+			       oldgrammar->haslabels, oldgrammar->hasindent
+	                      );
+
+#if LIBDEBUG
+	printf("grammar_push(%p)\n", grammar);
+#endif
+}
+
+grammardef* grammar_pop(void)
+{
+	grammardef* oldgrammar = grammar;
+
+	grammar = stack_pop(grammarstack);
+
+#if LIBDEBUG
+	printf("grammar_pop(%p)\n", grammar);
+#endif
+
+	if (grammar == NULL)
 	{
 		printf("Grammar stack underflow!\n");
 		exit(1);
 	}
 
-	symbols = block->symbols;
-	operators = block->operators;
-	preoperators = block->preoperators;
+	return oldgrammar;
+}
 
-	free(block);
+grammardef* grammarstack_print(void)
+{
+	for (int i=0; i < grammarstack->top; i++)
+	{
+		grammardef* grammar = grammarstack->base[i];
+		printf("grammar: %p\n", grammar);
+	}
 }
 
 
@@ -188,11 +294,8 @@ blockdef* blockdef_new(char* s)
 
 	blockdef* block = malloc(sizeof(blockdef));
 
-	block->symbols = symbols;
-	block->operators = operators;
-	block->preoperators = preoperators;
-
-	block->haslabels = 0;
+	block->headergrammar = grammar;
+	block->grammar = grammar;
 
 	block->name = s;
 
@@ -203,9 +306,10 @@ blockdef* blockdef_new(char* s)
 
 void blockdef_select(blockdef* block)
 {
-	symbols = block->symbols;
-	operators = block->operators;
-	preoperators = block->preoperators;
+	grammar = block->grammar;
+
+	grammarstack->top = 0;
+	stack_push(grammarstack, grammar);
 }
 
 
@@ -284,18 +388,22 @@ operator* operator_new(char* s, double precedence, int leftarg, int rightarg)
 	op->leftarg = leftarg;
 	op->rightarg = rightarg;
 
+	op->push = 1;
+
+	op->grammar = NULL;
+
 	if (leftarg == 0)
 	{
-		if (operator_alias(preoperators, s, op, 0))
+		if (operator_alias(grammar->preoperators, s, op, 0))
 		{
-			printf("operator \"%s\" already defined!\n", s);
+			printf("prefix operator \"%s\" already defined!\n", s);
 			return NULL;
 		}
 	}
 
 	//if (leftarg >= 0)
 	{
-		if (operator_alias(operators, s, op, 1))
+		if (operator_alias(grammar->operators, s, op, 1))
 		{
 			printf("operator \"%s\" already defined!\n", s);
 			return NULL;
@@ -632,9 +740,14 @@ void operand_kill(operand* this)
 
 void parserlib_init(void)
 {
-	symbols = malloc(sizeof(symtabentry)*256);
-	operators = malloc(sizeof(optabentry)*256);
-	preoperators = malloc(sizeof(optabentry)*256);
-
 	grammarstack = stack_new();
+
+	grammar = malloc(sizeof(grammardef));
+
+	symscope_push(NULL);
+
+	grammar->operators = calloc(256,sizeof(optabentry));
+	grammar->preoperators = calloc(256,sizeof(optabentry));
+	grammar->haslabels = 0;
+	grammar->hasindent = 0;
 }
