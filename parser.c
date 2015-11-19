@@ -591,7 +591,8 @@ ident_l:
 			// DAT blocks have local labels, which we need to scope now
 			if (sym->type == SYM_UNKNOWN)
 			{
-				if (*s != ':' && *s != '.')
+				// *ts as opposed to *s since s has lastgloballabel prepended to it
+				if (*ts != ':' && *ts != '.')
 				{
 					lastgloballabel = s;
 				}
