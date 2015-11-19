@@ -189,11 +189,11 @@ grammardef* grammar_new(symscope* symbols, optabentry* operators, optabentry* pr
 void grammar_push(grammardef* newgrammar);
 grammardef* grammar_pop(void);
 grammardef* grammarstack_print(void);
+void grammar_reset(grammardef* grammar);
 
 block* block_new(stack* blocks, blockdef* def, stack** lines);
 
 blockdef* blockdef_new(char* s);
-void blockdef_select(blockdef* block);
 
 operator* operator_new(char* p, double precedence, int leftarg, int rightarg);
 symbol* label_new(char* s);

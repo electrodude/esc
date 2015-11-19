@@ -285,6 +285,13 @@ grammardef* grammarstack_print(void)
 	}
 }
 
+void grammar_reset(grammardef* newgrammar)
+{
+	grammar = newgrammar;
+
+	grammarstack->top = 0;
+}
+
 
 blockdef* blockdef_new(char* s)
 {
@@ -302,14 +309,6 @@ blockdef* blockdef_new(char* s)
 	sym->data.block = block;
 
 	return block;
-}
-
-void blockdef_select(blockdef* block)
-{
-	grammar = block->grammar;
-
-	grammarstack->top = 0;
-	stack_push(grammarstack, grammar);
 }
 
 

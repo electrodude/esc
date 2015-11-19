@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 #include <getopt.h>
 
@@ -8,6 +9,8 @@
 #include "parserlib.h"
 
 #include "parser.h"
+
+#include "opcodes.c"
 
 #define OPTDEBUG 0
 
@@ -226,7 +229,15 @@ int main(int argc, char** argv)
 
 	parser_init();
 
-#include "opcodes.c"
+	if (!strcasecmp(langname, "spin"))
+	{
+		grammar_reset(register_spin());
+	}
+	else
+	{
+		printf("Unknown language: %s\n", langname);
+		exit(1);
+	}
 
 	if (optind >= argc)
 	{
