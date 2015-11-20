@@ -1,25 +1,25 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <ctype.h>
 
-#include "parserlib.h"
+#include "parserlib.hpp"
 
 #define LIBDEBUG 0
 
 
-// symbol table
+// Symbol table
 
 
-grammardef* grammar;
+Grammar* grammar;
 
 
-symbol* symbol_get(char* p)
+Symbol* Symbol::get(char* p)
 {
-	symbol* sym = NULL;
+	Symbol* sym = NULL;
 
 	for (symscope* scope = grammar->symbols; scope != NULL && sym == NULL; scope = scope->parent)
 	{
-		sym = symbol_get_if_exist(scope->symtab, p);
+		sym = Symbol::get_if_exist(scope->symtab, p);
 	}
 
 	if (sym != NULL)
@@ -27,19 +27,16 @@ symbol* symbol_get(char* p)
 		return sym;
 	}
 
-	sym = malloc(sizeof(symbol));
-	sym->type = SYM_UNKNOWN;
-	sym->name = p;
-	sym->defined = 0;
+	sym = new Symbol(p);
 
 	symtabentry* symtab = symtabentry_get(grammar->symbols->symtab, p);
 
-	symtab[0].sym = sym;
+	symtab[0].curr = sym;
 
 	return sym;
 }
 
-symbol* symbol_get_if_exist(symtabentry* base, char* p)
+Symbol* Symbol::get_if_exist(symtabentry* base, char* p)
 {
 	symtabentry* symtab = base;
 
@@ -63,7 +60,7 @@ symbol* symbol_get_if_exist(symtabentry* base, char* p)
 	putchar('\n');
 #endif
 
-	return symtab[0].sym;
+	return symtab[0].curr;
 }
 
 symtabentry* symtabentry_get(symtabentry* base, char* p)
@@ -92,13 +89,13 @@ symtabentry* symtabentry_get(symtabentry* base, char* p)
 	return symtab;
 }
 
-symbol* symbol_define(char* s, symboltype type)
+Symbol* Symbol::define(char* s, symboltype type)
 {
-	symbol* sym = symbol_get(s);
+	Symbol* sym = Symbol::get(s);
 
 	if (sym->defined)
 	{
-		printf("symbol %s already defined as %s!\n", s, sym->type == SYM_LABEL ? "label" : sym->type == SYM_OPCODE ? "opcode" : "unknown");
+		printf("Symbol %s already defined as %s!\n", s, sym->type == SYM_LABEL ? "label" : sym->type == SYM_OPCODE ? "Opcode" : "unknown");
 		return NULL;
 	}
 
@@ -108,9 +105,9 @@ symbol* symbol_define(char* s, symboltype type)
 	return sym;
 }
 
-void symbol_print(symbol* sym)
+void Symbol::print()
 {
-	switch (sym->type)
+	switch (this->type)
 	{
 		case SYM_LABEL:
 		{
@@ -119,7 +116,7 @@ void symbol_print(symbol* sym)
 		}
 		case SYM_OPCODE:
 		{
-			printf("opcode ");
+			printf("Opcode ");
 			break;
 		}
 		case SYM_BLOCK:
@@ -134,33 +131,33 @@ void symbol_print(symbol* sym)
 		}
 	}
 
-	printf("%s", sym->name);
+	printf("%s", this->name);
 }
 
-block* block_new(stack* blocks, blockdef* def, stack** lines)
+Block::Block(std::vector<Block*>* blocks, BlockDef* def, std::vector<Line*>** lines)
 {
-	block* blk = malloc(sizeof(block));
-	blk->def = def;
-	blk->lines = stack_new();
+	this->def = def;
 
-	stack_push(blocks, blk);
-	*lines = blk->lines;
+	this->name = def->name;
 
-	return blk;
+	blocks->push_back(this);
+
+	*lines = &this->lines;
 }
 
 
 
 symtabentry* symtabentry_new(void)
 {
-	return calloc(256, sizeof(symtabentry));
+	//return calloc(256, sizeof(symtabentry));
+	return new symtabentry[256]();
 }
 
 void symscope_push(symtabentry* symtab)
 {
 	symscope* oldsymbols = grammar->symbols;
 
-	symscope* symbols = malloc(sizeof(symscope));
+	symscope* symbols = new symscope();
 	symbols->parent = oldsymbols;
 
 	if (symtab == NULL)
@@ -190,7 +187,8 @@ symtabentry* symscope_pop(void)
 
 static optabentry* optabentry_new(void)
 {
-	return calloc(256, sizeof(optabentry));
+	//return calloc(256, sizeof(optabentry));
+	return new optabentry[256]();
 }
 
 static optabentry* optabentry_clone(optabentry* optab)
@@ -200,9 +198,9 @@ static optabentry* optabentry_clone(optabentry* optab)
 		return NULL;
 	}
 
-	optabentry* optab2 = calloc(256, sizeof(optabentry));
+	optabentry* optab2 = optabentry_new();
 
-	optab2[0].op = optab[0].op;
+	optab2[0].curr = optab[0].curr;
 
 	for (int i=1; i < 256; i++)
 	{
@@ -212,52 +210,47 @@ static optabentry* optabentry_clone(optabentry* optab)
 	return optab2;
 }
 
-static stack* grammarstack;
+static std::vector<Grammar*> grammarstack;
 
-grammardef* grammar_new(symscope* symbols, optabentry* operators, optabentry* preoperators, int haslabels, int hasindent)
+Grammar::Grammar(symscope* symbols, optabentry* operators, optabentry* preoperators, int haslabels, int hasindent)
+                : haslabels(haslabels), hasindent(hasindent)
 {
-	grammardef* newgrammar = malloc(sizeof(grammardef));
-
-	//newgrammar->symbols = symbols != NULL ? symbols : symscope_push();
-	newgrammar->symbols = symbols;
-	newgrammar->operators = operators != NULL ? operators : optabentry_new();
-	newgrammar->preoperators = preoperators != NULL ? preoperators : optabentry_new();
-
-	newgrammar->haslabels = haslabels;
-	newgrammar->hasindent = hasindent;
-
-	return newgrammar;
+	//this->symbols = symbols != NULL ? symbols : symscope_push();
+	this->symbols = symbols;
+	this->operators = operators != NULL ? operators : optabentry_new();
+	this->preoperators = preoperators != NULL ? preoperators : optabentry_new();
 }
 
-void grammar_push(grammardef* newgrammar)
+void Grammar::push(Grammar* newgrammar)
 {
-	// save old grammardef
-	grammardef* oldgrammar = grammar;
+	// save old Grammar
+	Grammar* oldgrammar = grammar;
 
-	stack_push(grammarstack, grammar);
+	grammarstack.push_back(grammar);
 
 
-	// make new grammardef if newgrammar == NULL
+	// make new Grammar if newgrammar == NULL
 	grammar = newgrammar != NULL ? newgrammar :
-	           grammar_new(oldgrammar->symbols,
+	           new Grammar(oldgrammar->symbols,
 	                       optabentry_clone(oldgrammar->operators),
 			       optabentry_clone(oldgrammar->preoperators),
 			       oldgrammar->haslabels, oldgrammar->hasindent
 	                      );
 
 #if LIBDEBUG
-	printf("grammar_push(%p)\n", grammar);
+	printf("Grammar::push(%p)\n", grammar);
 #endif
 }
 
-grammardef* grammar_pop(void)
+Grammar* Grammar::pop(void)
 {
-	grammardef* oldgrammar = grammar;
+	Grammar* oldgrammar = grammar;
 
-	grammar = stack_pop(grammarstack);
+	grammar = grammarstack.back();
+	grammarstack.pop_back();
 
 #if LIBDEBUG
-	printf("grammar_pop(%p)\n", grammar);
+	printf("Grammar::pop(%p)\n", grammar);
 #endif
 
 	if (grammar == NULL)
@@ -269,45 +262,41 @@ grammardef* grammar_pop(void)
 	return oldgrammar;
 }
 
-grammardef* grammarstack_print(void)
+void grammarstack_print(void)
 {
-	for (int i=0; i < grammarstack->top; i++)
+	for (std::vector<Grammar*>::iterator it = grammarstack.begin(); it != grammarstack.end(); ++it)
 	{
-		grammardef* grammar = grammarstack->base[i];
+		Grammar* grammar = *it;
 		printf("grammar: %p\n", grammar);
 	}
 }
 
-void grammar_reset(grammardef* newgrammar)
+void Grammar::reset(Grammar* newgrammar)
 {
 	grammar = newgrammar;
 
-	grammarstack->top = 0;
+	grammarstack.clear();
 }
 
 
-blockdef* blockdef_new(char* s)
+BlockDef::BlockDef(char* s)
 {
-	symbol* sym = symbol_define(s, SYM_BLOCK);
+	Symbol* sym = Symbol::define(s, SYM_BLOCK);
 
-	if (sym == NULL) return NULL;
+	if (sym == NULL) throw 0;
 
-	blockdef* block = malloc(sizeof(blockdef));
+	this->headgrammar = grammar;
+	this->bodygrammar = grammar;
 
-	block->headergrammar = grammar;
-	block->grammar = grammar;
+	this->name = s;
 
-	block->name = s;
-
-	sym->data.block = block;
-
-	return block;
+	sym->data.blockdef = this;
 }
 
 
-// operator
+// Operator
 
-static inline int operator_alias(optabentry* optab, char* p, operator* op, int overwriteif)
+static inline int operator_alias(optabentry* optab, char* p, Operator* op, int overwriteif)
 {
 	const char* s2 = p;
 
@@ -322,7 +311,7 @@ static inline int operator_alias(optabentry* optab, char* p, operator* op, int o
 		optabentry* optab2 = optab[c].next;
 		if (optab2 == NULL)
 		{
-			optab2 = optab[c].next = calloc(256,sizeof(optabentry));
+			optab2 = optab[c].next = optabentry_new();
 		}
 		optab = optab2;
 		p++;
@@ -332,12 +321,12 @@ static inline int operator_alias(optabentry* optab, char* p, operator* op, int o
 #endif
 	// if there's already something here, and both are actually supposed to
 	//  have left arguments (this is the left argument table), then complain
-	if (optab[0].op != NULL)
+	if (optab[0].curr != NULL)
 	{
-		operator* op2 = optab[0].op;
+		Operator* op2 = optab[0].curr;
 
 #if LIBDEBUG
-		printf("operator \"%s\" already defined: \"%s\" (%d, %d): ", s2, op2->name, op2->leftarg, op2->rightarg);
+		printf("Operator \"%s\" already defined: \"%s\" (%d, %d): ", s2, op2->name, op2->leftarg, op2->rightarg);
 #endif
 
 		if (!overwriteif || (op->leftarg && op2->leftarg))
@@ -362,72 +351,69 @@ static inline int operator_alias(optabentry* optab, char* p, operator* op, int o
 		}
 	}
 
-	optab[0].op = op;
+	optab[0].curr = op;
 
 	return 0;
 }
 
-operator* operator_new(char* s, double precedence, int leftarg, int rightarg)
+Operator::Operator(char* s, double precedence, int leftarg, int rightarg)
 {
 #if LIBDEBUG
 	printf("operator_new \"%s\" (%d, %d, %g)\n", s, leftarg, rightarg, precedence);
 #endif
 
-	operator* op = malloc(sizeof(operator));
-	op->precedence = precedence;
-	op->name = s;
+	this->precedence = precedence;
+	this->name = s;
 
-	op->leftarg = leftarg;
-	op->rightarg = rightarg;
+	this->leftarg = leftarg;
+	this->rightarg = rightarg;
 
-	op->push = 1;
+	this->push = 1;
 
-	op->grammar = NULL;
+	this->localgrammar = NULL;
 
 	if (leftarg == 0)
 	{
-		if (operator_alias(grammar->preoperators, s, op, 0))
+		if (operator_alias(grammar->preoperators, s, this, 0))
 		{
-			printf("prefix operator \"%s\" already defined!\n", s);
-			return NULL;
+			printf("prefix Operator \"%s\" already defined!\n", s);
+			throw 0;
 		}
 	}
 
 	//if (leftarg >= 0)
 	{
-		if (operator_alias(grammar->operators, s, op, 1))
+		if (operator_alias(grammar->operators, s, this, 1))
 		{
-			printf("operator \"%s\" already defined!\n", s);
-			return NULL;
+			printf("Operator \"%s\" already defined!\n", s);
+			throw 0;
 		}
 	}
 
 #if LIBDEBUG
 	printf("\n");
 #endif
-
-	return op;
 }
 
 
-symbol* label_new(char* s)
+Symbol* label_new(char* s)
 {
-	symbol* sym = symbol_define(s, SYM_LABEL);
+	Symbol* sym = Symbol::define(s, SYM_LABEL);
 
 	if (sym == NULL) return NULL;
 
 	return sym;
 }
 
-opcode* opcode_new(char* s, const char* bits)
+Opcode* opcode_new(char* s, const char* bits)
 {
-	symbol* sym = symbol_define(s, SYM_OPCODE);
+	Symbol* sym = Symbol::define(s, SYM_OPCODE);
 
 	if (sym == NULL) return NULL;
 
-	opcode* op = malloc(sizeof(opcode));
+	Opcode* op = new Opcode();
 
-	op->bits = bitfield_new_s(bits);
+	op->bits = bitfield(bits);
 	op->name = s;
 
 	sym->data.op = op;
@@ -435,17 +421,17 @@ opcode* opcode_new(char* s, const char* bits)
 	return op;
 }
 
-symbol* modifier_new(char* s, const char* bits)
+Symbol* modifier_new(char* s, const char* bits)
 {
-	symbol* sym = symbol_define(s, SYM_OPCODE);
+	Symbol* sym = Symbol::define(s, SYM_OPCODE);
 
 	if (sym == NULL) return NULL;
 
-	opcode* op = malloc(sizeof(opcode));
+	Opcode* op = new Opcode();
 
 	op->func = NULL;
 	op->data = NULL;
-	op->bits = bitfield_new_s(bits);
+	op->bits = bitfield(bits);
 	op->name = s;
 
 	sym->data.op = op;
@@ -454,31 +440,31 @@ symbol* modifier_new(char* s, const char* bits)
 }
 
 
-operand* int_new(plong x)
+Operand* int_new(plong x)
 {
-	operand* this = malloc(sizeof(operand));
+	Operand* operand = new Operand();
 
-	this->type = INT;
-	this->val.val = x;
+	operand->type = Operand::INT;
+	operand->val.val = x;
 
-	return this;
+	return operand;
 }
 
-operand* ident_new(char* s)
+Operand* ident_new(char* s)
 {
-	operand* this = malloc(sizeof(operand));
+	Operand* operand = new Operand();
 
-	this->type = IDENT;
-	this->val.ident = symbol_get(s);
+	operand->type = Operand::IDENT;
+	operand->val.ident = Symbol::get(s);
 
-	return this;
+	return operand;
 }
 
-operand* ident_new_intern(char** p)
+Operand* ident_new_intern(char** p)
 {
-	operand* this = ident_new(*p);
+	Operand* operand = ident_new(*p);
 
-	char* s = this->val.ident->name;
+	char* s = operand->val.ident->name;
 
 	if (s != *p)
 	{
@@ -489,33 +475,33 @@ operand* ident_new_intern(char** p)
 		free(p_old);
 	}
 
-	return this;
+	return operand;
 }
 
-operand* string_new(char* s)
+Operand* string_new(char* s)
 {
-	operand* this = malloc(sizeof(operand));
+	Operand* operand = new Operand();
 
-	this->type = STRING;
-	this->val.str = s;
+	operand->type = Operand::STRING;
+	operand->val.str = s;
 
-	return this;
+	return operand;
 }
 
-operand* binop_new(operator* op, operand* lhs, operand* rhs)
+Operand* binop_new(Operator* op, Operand* lhs, Operand* rhs)
 {
-	operand* this = malloc(sizeof(operand));
+	Operand* operand = new Operand();
 
-	this->type = BINOP;
-	this->val.binop.op = op;
-	this->val.binop.operands[0] = lhs;
-	this->val.binop.operands[1] = rhs;
+	operand->type = Operand::BINOP;
+	operand->val.binop.op = op;
+	operand->val.binop.operands[0] = lhs;
+	operand->val.binop.operands[1] = rhs;
 
-	return this;
+	return operand;
 }
 
 /*
-int operand_eval(operand* this)
+int Operand::eval(Operand* this)
 {
 	if (this == NULL)
 	{
@@ -523,32 +509,32 @@ int operand_eval(operand* this)
 	}
 
 #if LIBDEBUG >= 2
-	printf("operand_eval: ");
+	printf("Operand::eval: ");
 #endif
 
 	switch (this->type)
 	{
-		case INT:
+		case Operand::INT:
 		{
 #if LIBDEBUG >= 2
 			printf("int: %d\n", this->val.val);
 #endif
 			return this->val.val;
 		}
-		case IDENT:
+		case Operand::IDENT:
 		{
 #if LIBDEBUG >= 2
 			printf("label: %s\n", this->val.ident);
 #endif
 			return this->val.ident->data.reg->caddr;
 		}
-		case BINOP:
+		case Operand::BINOP:
 		{
 #if LIBDEBUG >= 2
 			printf("binop: %c\n", this->val.binop.op);
 #endif
-			int lhs = operand_eval(this->val.binop.operands[0]);
-			int rhs = operand_eval(this->val.binop.operands[1]);
+			int lhs = Operand::eval(this->val.binop.operands[0]);
+			int rhs = Operand::eval(this->val.binop.operands[1]);
 			switch (this->val.binop.op)
 			{
 				case '+':
@@ -582,24 +568,24 @@ int operand_eval(operand* this)
 }
 */
 
-static void operand_print_list(operand* this)
+void Operand::print_list()
 {
-	if (this->type != BINOP || this->val.binop.op == NULL || this->val.binop.op->name[0] != 0)
+	if (this->type != Operand::BINOP || this->val.binop.op == NULL || this->val.binop.op->name[0] != 0)
 	{
-		operand_print(this);
+		this->print();
 		return;
 	}
 
-	operand** operands = this->val.binop.operands;
+	Operand** operands = this->val.binop.operands;
 
-	operand_print_list(operands[0]);
+	operands[0]->print_list();
 
 	printf(" ");
 
-	operand_print_list(operands[1]);
+	operands[1]->print_list();
 }
 
-void operand_print(operand* this)
+void Operand::print()
 {
 	if (this == NULL)
 	{
@@ -609,27 +595,27 @@ void operand_print(operand* this)
 
 	switch (this->type)
 	{
-		case INT:
+		case Operand::INT:
 		{
 			printf("%u", this->val.val);
 
 			break;
 		}
-		case IDENT:
+		case Operand::IDENT:
 		{
 			printf("(");
-			symbol_print(this->val.ident);
+			this->val.ident->print();
 			printf(")");
 
 			break;
 		}
-		case BINOP:
+		case Operand::BINOP:
 		{
-			operator* op = this->val.binop.op;
+			Operator* op = this->val.binop.op;
 			if (op != NULL && op->name[0] == 0)
 			{
 				printf("[");
-				operand_print_list(this);
+				this->print_list();
 				printf("]");
 			}
 			else
@@ -648,12 +634,12 @@ void operand_print(operand* this)
 				if (this->val.binop.operands[0] != NULL)
 				{
 					printf(" ");
-					operand_print(this->val.binop.operands[0]);
+					this->val.binop.operands[0]->print();
 				}
 				if (this->val.binop.operands[1] != NULL)
 				{
 					printf(" ");
-					operand_print(this->val.binop.operands[1]);
+					this->val.binop.operands[1]->print();
 				}
 
 				printf(")");
@@ -661,14 +647,14 @@ void operand_print(operand* this)
 
 			break;
 		}
-		case PTR:
+		case Operand::PTR:
 		{
 			//printf("[%s]", this->val.line->name);
 			printf("[ptr]");
 
 			break;
 		}
-		case STRING:
+		case Operand::STRING:
 		{
 			printf("\"%s\"", this->val.str);
 
@@ -684,7 +670,7 @@ void operand_print(operand* this)
 }
 
 /*
-void operand_kill(operand* this)
+void Operand::kill(Operand* this)
 {
 	if (this == NULL)
 	{
@@ -693,19 +679,19 @@ void operand_kill(operand* this)
 
 	switch (this->type)
 	{
-		case INT:
+		case Operand::INT:
 		{
 			break;
 		}
-		case IDENT:
+		case Operand::IDENT:
 		{
 			free(this->val.ident);
 			break;
 		}
-		case BINOP:
+		case Operand::BINOP:
 		{
-			operand_kill(this->val.binop.operands[0]);
-			operand_kill(this->val.binop.operands[1]);
+			Operand::kill(this->val.binop.operands[0]);
+			Operand::kill(this->val.binop.operands[1]);
 			break;
 		}
 		default:
@@ -722,14 +708,12 @@ void operand_kill(operand* this)
 
 void parserlib_init(void)
 {
-	grammarstack = stack_new();
-
-	grammar = malloc(sizeof(grammardef));
+	grammar = new Grammar();
 
 	symscope_push(NULL);
 
-	grammar->operators = calloc(256,sizeof(optabentry));
-	grammar->preoperators = calloc(256,sizeof(optabentry));
+	grammar->operators = optabentry_new();
+	grammar->preoperators = optabentry_new();
 	grammar->haslabels = 0;
 	grammar->hasindent = 0;
 }

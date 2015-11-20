@@ -1,17 +1,17 @@
-#include "stack.h"
-#include <stdlib.h>
+#include <cstdlib>
+#include <cstdio>
 
-#include <stdio.h>
+#include <vector>
 
-#include "parserlib.h"
+#include "parserlib.hpp"
 
-#include "parser.h"
+#include "parser.hpp"
 
-#include "compiler.h"
+#include "compiler.hpp"
 
 #define COMPILER_DEBUG 2
 
-#define COMPILER_DUMP_AST 0
+#define COMPILER_DUMP_AST 1
 
 void compile_file(char* path)
 {
@@ -22,7 +22,7 @@ void compile_file(char* path)
 	// load file
 	size_t slen = 65536;
 	size_t sused = 0;
-	char* s = malloc(slen);
+	char* s = (char*)malloc(slen);
 	FILE* f = fopen(path, "r");
 	size_t n_read = 0;
 	do
@@ -35,7 +35,7 @@ void compile_file(char* path)
 
 		if (slen < sused - 256)
 		{
-			s = realloc(s, slen *= 2);
+			s = (char*)realloc(s, slen *= 2);
 		}
 	} while (n_read);
 	fclose(f);
@@ -44,14 +44,14 @@ void compile_file(char* path)
 #if COMPILER_DEBUG >= 2
 	printf("parse\n");
 #endif
-	stack/*of block*/ * blocks = parser(s);
+	std::vector<Block*>* blocks = parser(s);
 
 	if (blocks == NULL)
 	{
 		return;
 	}
 #if COMPILER_DEBUG >= 2
-	printf("%d blocks\n", blocks->top);
+	printf("%ld blocks\n", blocks->size());
 #endif
 
 	free(s);
@@ -59,16 +59,16 @@ void compile_file(char* path)
 #if COMPILER_DUMP_AST
 	printf("AST:\n");
 
-	for (int i=0; i < blocks->top; i++)
+	for (std::vector<Block*>::iterator it = blocks->begin(); it != blocks->end(); ++it)
 	{
-		block* currblock = blocks->base[i];
+		Block* currblock = *it;
 		printf("\nblock \"%s\"\n", currblock->def->name);
-		stack/* of line */ * lines = currblock->lines;
-		for (int j=0; j < lines->top; j++)
+		std::vector<Line*>& lines = currblock->lines;
+		for (std::vector<Line*>::iterator it2 = lines.begin(); it2 != lines.end(); ++it2)
 		{
-			line* l = lines->base[j];
+			Line* l = *it2;
 			printf("%d ", l->indentdepth);
-			operand_print(l->operand);
+			l->operand->print();
 			printf("\n");
 
 		}

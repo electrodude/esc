@@ -1,99 +1,99 @@
-#include <stdlib.h>
+#include <cstdlib>
 
-#include "parserlib.h"
+#include "parserlib.hpp"
 
-grammardef* register_spin(void)
+Grammar* register_spin(void)
 {
 	// basic universal Spin operators
 
 	// . and #
-	operator_new("." ,  -11,  1,1);
-	operator_new("#" ,  -11,  -1,1);
+	new Operator("." ,  -11,  1,1);
+	new Operator("#" ,  -11,  -1,1);
 
-	operator_new("~" ,   0,  0,1);
-	operator_new("~~",   0,  0,1);
+	new Operator("~" ,   0,  0,1);
+	new Operator("~~",   0,  0,1);
 
-	operator_new("@" ,   0,  0,1);
-	operator_new("@@",   0,  0,1);
+	new Operator("@" ,   0,  0,1);
+	new Operator("@@",   0,  0,1);
 
-	operator_new("+",    1,  0,1);
-	operator_new("-",    1,  0,1);
-	operator_new("^^",   1,  0,1);
-	operator_new("||",   1,  0,1);
-	operator_new("|<",   1,  0,1);
-	operator_new(">|",   1,  0,1);
-	operator_new("!",    1,  0,1);
+	new Operator("+",    1,  0,1);
+	new Operator("-",    1,  0,1);
+	new Operator("^^",   1,  0,1);
+	new Operator("||",   1,  0,1);
+	new Operator("|<",   1,  0,1);
+	new Operator(">|",   1,  0,1);
+	new Operator("!",    1,  0,1);
 
-	operator_new("<-",   2,  1,1);
-	operator_new("->",   2,  1,1);
-	operator_new("<<",   2,  1,1);
-	operator_new(">>",   2,  1,1);
-	operator_new("~>",   2,  1,1);
-	operator_new("><",   2,  1,1);
+	new Operator("<-",   2,  1,1);
+	new Operator("->",   2,  1,1);
+	new Operator("<<",   2,  1,1);
+	new Operator(">>",   2,  1,1);
+	new Operator("~>",   2,  1,1);
+	new Operator("><",   2,  1,1);
 
-	operator_new("&",    3,  1,1);
+	new Operator("&",    3,  1,1);
 
-	operator_new("|",    4,  1,1);
-	operator_new("^",    4,  1,1);
+	new Operator("|",    4,  1,1);
+	new Operator("^",    4,  1,1);
 
-	operator_new("*",    5,  1,1);
-	operator_new("**",   5,  1,1);
-	operator_new("/",    5,  1,1);
-	operator_new("//",   5,  1,1);
+	new Operator("*",    5,  1,1);
+	new Operator("**",   5,  1,1);
+	new Operator("/",    5,  1,1);
+	new Operator("//",   5,  1,1);
 
-	operator_new("+",    6,  1,1);
-	operator_new("-",    6,  1,1);
+	new Operator("+",    6,  1,1);
+	new Operator("-",    6,  1,1);
 
-	operator_new("#>",   7,  1,1);
-	operator_new("<#",   7,  1,1);
+	new Operator("#>",   7,  1,1);
+	new Operator("<#",   7,  1,1);
 
-	operator_new("<",    8,  1,1);
-	operator_new(">",    8,  1,1);
-	operator_new("<>",   8,  1,1);
-	operator_new("==",   8,  1,1);
-	operator_new("=<",   8,  1,1);
-	operator_new("=>",   8,  1,1);
-
-
-	operator_new("not",  9,  0,1);
-
-	operator_new("and",  10, 1,1);
-
-	operator_new("or",   11, 1,1);
-
-	operator_new("(",   -10, 1,2); // function call
-	operator_new("(",    10, 0,2);
-	operator_new(")",    10, 2,0)->push = 0;
-
-	operator_new("[",  -10, 1,3); // array index
-	//operator_new("[",   10, 0,3); // unused [val] notation
-	operator_new("]",   10, 3,0);
-
-	grammar_push(grammar_new(grammar->symbols, NULL, NULL, 0, 0));
-		blockdef* objblock = blockdef_new("obj");
-
-		operator_new(":",    16, 1,1);
-
-		operator_new("[",  -10, 1,3)->grammar = grammar; // instance count
-
-	grammar_pop();
+	new Operator("<",    8,  1,1);
+	new Operator(">",    8,  1,1);
+	new Operator("<>",   8,  1,1);
+	new Operator("==",   8,  1,1);
+	new Operator("=<",   8,  1,1);
+	new Operator("=>",   8,  1,1);
 
 
+	new Operator("not",  9,  0,1);
 
-	grammar_push(NULL);
-		blockdef* conblock = blockdef_new("con");
+	new Operator("and",  10, 1,1);
 
-		operator_new("#" ,   0,  0,1); // check precedence of this
-		operator_new("=",    12, 1,1);
-		operator_new(",",    13, 1,1);
+	new Operator("or",   11, 1,1);
 
-	grammar_pop();
+	new Operator("(",   -10, 1,2); // function call
+	new Operator("(",    10, 0,2);
+	(new Operator(")",    10, 2,0))->push = 0;
 
-	grammar_push(NULL);
-		blockdef* varblock = blockdef_new("var");
+	new Operator("[",  -10, 1,3); // array index
+	//new Operator("[",   10, 0,3); // unused [val] notation
+	(new Operator("]",   10, 3,0))->push = 0;
 
-		operator_new(",",    13, 1,1);
-		operator_new("",     15, 1,1);
+	Grammar::push(new Grammar(grammar->symbols, NULL, NULL, 0, 0));
+		BlockDef* objblock = new BlockDef("obj");
+
+		new Operator(":",    16, 1,1);
+
+		(new Operator("[",  -10, 1,3))->localgrammar = grammar; // instance count
+
+	Grammar::pop();
+
+
+
+	Grammar::push(NULL);
+		BlockDef* conblock = new BlockDef("con");
+
+		new Operator("#" ,   0,  0,1); // check precedence of this
+		new Operator("=",    12, 1,1);
+		new Operator(",",    13, 1,1);
+
+	Grammar::pop();
+
+	Grammar::push(NULL);
+		BlockDef* varblock = new BlockDef("var");
+
+		new Operator(",",    13, 1,1);
+		new Operator("",     15, 1,1);
 
 		/*
 		label_new("byte");
@@ -101,95 +101,95 @@ grammardef* register_spin(void)
 		label_new("long");
 		*/
 
-	grammar_pop();
+	Grammar::pop();
 
-	grammar_push(NULL);
-		blockdef* pubblock = blockdef_new("pub");
-		blockdef* priblock = blockdef_new("pri");
+	Grammar::push(NULL);
+		BlockDef* pubblock = new BlockDef("pub");
+		BlockDef* priblock = new BlockDef("pri");
 
 		grammar->hasindent = 1;
 
-		operator_new("\\" ,  -2,  0,1); // \try
+		new Operator("\\" ,  -2,  0,1); // \try
 
-		operator_new("--",   0,  0,1);
-		operator_new("--",   0,  1,0);
-		operator_new("++",   0,  0,1);
-		operator_new("++",   0,  1,0);
-		operator_new("~" ,   0,  1,0);
-		operator_new("~~",   0,  1,0);
-		operator_new("?" ,   0,  0,1);
-		operator_new("?" ,   0,  1,0);
+		new Operator("--",   0,  0,1);
+		new Operator("--",   0,  1,0);
+		new Operator("++",   0,  0,1);
+		new Operator("++",   0,  1,0);
+		new Operator("~" ,   0,  1,0);
+		new Operator("~~",   0,  1,0);
+		new Operator("?" ,   0,  0,1);
+		new Operator("?" ,   0,  1,0);
 
-		operator_new("<-=",  2,  1,1);
-		operator_new("->=",  2,  1,1);
-		operator_new("<<=",  2,  1,1);
-		operator_new(">>=",  2,  1,1);
-		operator_new("~>=",  2,  1,1);
-		operator_new("><=",  2,  1,1);
+		new Operator("<-=",  2,  1,1);
+		new Operator("->=",  2,  1,1);
+		new Operator("<<=",  2,  1,1);
+		new Operator(">>=",  2,  1,1);
+		new Operator("~>=",  2,  1,1);
+		new Operator("><=",  2,  1,1);
 
-		operator_new("&=",   3,  1,1);
+		new Operator("&=",   3,  1,1);
 
-		operator_new("|=",   4,  1,1);
-		operator_new("^=",   4,  1,1);
+		new Operator("|=",   4,  1,1);
+		new Operator("^=",   4,  1,1);
 
-		operator_new("*=",   5,  1,1);
-		operator_new("**=",  5,  1,1);
-		operator_new("/=",   5,  1,1);
-		operator_new("//=",  5,  1,1);
+		new Operator("*=",   5,  1,1);
+		new Operator("**=",  5,  1,1);
+		new Operator("/=",   5,  1,1);
+		new Operator("//=",  5,  1,1);
 
-		operator_new("+=",   6,  1,1);
-		operator_new("-=",   6,  1,1);
+		new Operator("+=",   6,  1,1);
+		new Operator("-=",   6,  1,1);
 
-		operator_new("#>=",  7,  1,1);
-		operator_new("<#=",  7,  1,1);
+		new Operator("#>=",  7,  1,1);
+		new Operator("<#=",  7,  1,1);
 
-		operator_new("<=",   8,  1,1);
-		operator_new(">=",   8,  1,1);
-		operator_new("<>=",  8,  1,1);
-		operator_new("===",  8,  1,1);
-		operator_new("=<=",  8,  1,1);
-		operator_new("=>=",  8,  1,1);
-
-
-		operator_new("and=", 10, 1,1);
-
-		operator_new("or=",  11, 1,1);
-
-		operator_new(":=",   12, 1,1);
-
-		operator_new("..",   12.5,1,1);
-		operator_new(",",    13, 1,1);
-		operator_new(":",    14, 1,-1);
-		operator_new("",     15, 1,1);
-
-	grammar_pop();
-
-	grammar_push(grammar_new(grammar->symbols, NULL, NULL, 0, 0));
-
-		//operator_new("(",   -10, 1,2); // function args
-		operator_new("(",    10, 0,2);
-		operator_new(")",    10, 2,0);
-
-		operator_new("[",  -10, 1,3)->grammar = pubblock->grammar; // array size
-		operator_new(",",    0, 1,1);
-		operator_new(":",    1, 0,1);
-		operator_new("|",    1, 0,1);
-
-		operator_new("",     15, 1,1);
+		new Operator("<=",   8,  1,1);
+		new Operator(">=",   8,  1,1);
+		new Operator("<>=",  8,  1,1);
+		new Operator("===",  8,  1,1);
+		new Operator("=<=",  8,  1,1);
+		new Operator("=>=",  8,  1,1);
 
 
-		pubblock->headergrammar = grammar;
-		priblock->headergrammar = grammar;
-	grammar_pop();
+		new Operator("and=", 10, 1,1);
 
-	grammar_push(NULL);
-		blockdef* datblock = blockdef_new("dat");
+		new Operator("or=",  11, 1,1);
+
+		new Operator(":=",   12, 1,1);
+
+		new Operator("..",   12.5,1,1);
+		new Operator(",",    13, 1,1);
+		new Operator(":",    14, 1,-1);
+		new Operator("",     15, 1,1);
+
+	Grammar::pop();
+
+	Grammar::push(new Grammar(grammar->symbols, NULL, NULL, 0, 0));
+
+		//new Operator("(",   -10, 1,2); // function args
+		new Operator("(",    10, 0,2);
+		new Operator(")",    10, 2,0);
+
+		(new Operator("[",  -10, 1,3))->localgrammar = pubblock->bodygrammar; // array size
+		new Operator(",",    0, 1,1);
+		new Operator(":",    1, 0,1);
+		new Operator("|",    1, 0,1);
+
+		new Operator("",     15, 1,1);
+
+
+		pubblock->headgrammar = grammar;
+		priblock->headgrammar = grammar;
+	Grammar::pop();
+
+	Grammar::push(NULL);
+		BlockDef* datblock = new BlockDef("dat");
 
 		grammar->haslabels = 1;
 
-		operator_new("#" ,   0,  0,1); // check precedence of this
-		operator_new(",",    13, 1,1);
-		operator_new("",     15, 1,1);
+		new Operator("#" ,   0,  0,1); // check precedence of this
+		new Operator(",",    13, 1,1);
+		new Operator("",     15, 1,1);
 
 		opcode_new("org", "");
 		opcode_new("res", "");
@@ -365,7 +365,7 @@ grammardef* register_spin(void)
 		modifier_new("wr",           "xxxxxx_xx1x_xxxx_xxxxxxxxx_xxxxxxxxx");
 		modifier_new("nr",           "xxxxxx_xx0x_xxxx_xxxxxxxxx_xxxxxxxxx");
 
-	grammar_pop();
+	Grammar::pop();
 
-	return conblock->grammar;
+	return conblock->bodygrammar;
 }

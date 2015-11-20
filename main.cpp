@@ -1,19 +1,19 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <strings.h>
 
 #include <getopt.h>
 
-#include "stack.h"
-#include "parserlib.h"
+#include "parserlib.hpp"
 
-#include "parser.h"
+#include "parser.hpp"
 
-#include "compiler.h"
+#include "compiler.hpp"
 
 #define OPTDEBUG 0
 
+/*
 static inline char* strdup(const char* s)
 {
 	char* d = malloc(strlen(s) + 1);
@@ -23,6 +23,7 @@ static inline char* strdup(const char* s)
 
 	return d;
 }
+*/
 
 static char* outputfile;
 
@@ -57,12 +58,12 @@ static void usage(void)
 
 // main
 
-grammardef* register_spin(void);
+Grammar* register_spin(void);
 
 int main(int argc, char** argv)
 {
-	stack* search_dirs = stack_new();
-	stack_push(search_dirs, ".");
+	std::vector<char*> search_dirs;
+	search_dirs.push_back(".");
 
 	char* outputfile = NULL;
 	char* langname = NULL;
@@ -137,7 +138,7 @@ int main(int argc, char** argv)
 #if OPTDEBUG
 				printf("search dir: %s\n", path);
 #endif
-				stack_push(search_dirs, path);
+				search_dirs.push_back(path);
 				break;
 			}
 
@@ -182,7 +183,7 @@ int main(int argc, char** argv)
 
 	if (!strcasecmp(langname, "spin"))
 	{
-		grammar_reset(register_spin());
+		Grammar::reset(register_spin());
 	}
 	else
 	{
@@ -213,7 +214,7 @@ int main(int argc, char** argv)
 	if (outputfile == NULL)
 	{
 		size_t inputfile_len = strlen(inputfile);
-		outputfile = malloc(inputfile_len + 7 + 1);
+		outputfile = (char*)malloc(inputfile_len + 7 + 1);
 		strcpy(outputfile, inputfile);
 
 		strncpy(&outputfile[inputfile_len], ".binary", 7);
