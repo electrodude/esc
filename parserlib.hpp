@@ -26,8 +26,16 @@ template <class T>
 union chartree
 {
 public:
+	static chartree<T>* create();
+	static chartree<T>* clone(chartree<T>* optab);
+	static chartree<T>* get(chartree<T>* base, char* p);
+	static T* get_if_exist(chartree<T>* base, char* p);
+
 	chartree<T>* next;
 	T* curr;
+
+private:
+	chartree() : next(NULL) {}
 };
 
 class Symbol;
@@ -36,19 +44,18 @@ typedef chartree<Symbol> symtabentry;
 class Operator;
 typedef chartree<Operator> optabentry;
 
-class symscope;
-
 class Grammar
 {
 public:
-	Grammar() {};
-	Grammar(symscope* symbols, optabentry* operators, optabentry* preoperators, int haslabels, int hasindent);
+	Grammar();
+	Grammar(symtabentry* symbols, optabentry* operators = NULL, optabentry* preoperators = NULL, int haslabels = 0, int hasindent = 0);
+	static void push();
 	static void push(Grammar* newgrammar);
 	static Grammar* pop(void);
 	void print(void);
 	static void reset(Grammar* grammar);
 
-	symscope* symbols;
+	symtabentry* symbols;
 	optabentry* operators;
 	optabentry* preoperators;
 
@@ -108,24 +115,11 @@ public:
 	int defined;
 
 	static Symbol* get(char* p);
-	static Symbol* get_if_exist(symtabentry* base, char* p);
+	static Symbol* get(symtabentry* symtab, char* p);
 	static Symbol* define(char* s, symboltype type);
 
 	void print();
 };
-
-// Symbol table
-
-class symscope
-{
-public:
-	symtabentry* symtab;
-	symscope* parent;
-
-	static void push(symtabentry* symtab);
-	static symtabentry* pop(void);
-};
-
 
 // instruction
 
@@ -144,10 +138,18 @@ class instruction
 class Operator
 {
 public:
-	Operator(char* p, double precedence, int leftarg, int rightarg);
+	Operator(char* name, double precedence, int leftarg, int rightarg, int push = 1, Grammar* localgrammar = NULL);
+	Operator(char* name, double precedence, int leftarg, int rightarg, Grammar* localgrammar)
+	{
+		Operator(name, precedence, leftarg, rightarg, 1, localgrammar);
+	}
 
-	double precedence;
+	static Operator* get(optabentry* optab, char* name);
+
+	int alias(optabentry* optab, char* p, int overwriteif);
+
 	char* name;
+	double precedence;
 
 	int leftarg;
 	int rightarg;

@@ -6,6 +6,9 @@ Grammar* register_spin(void)
 {
 	// basic universal Spin operators
 
+	// grammar object containing things legal in constant expressions
+	Grammar* grammar_constexpr = grammar;
+
 	// . and #
 	new Operator("." ,  -11,  1,1);
 	new Operator("#" ,  -11,  -1,1);
@@ -61,36 +64,40 @@ Grammar* register_spin(void)
 
 	new Operator("or",   11, 1,1);
 
-	new Operator("(",   -10, 1,2); // function call
+	Operator* op_funccall = new Operator("(",   -10, 1,2); // function call
 	new Operator("(",    10, 0,2);
-	(new Operator(")",    10, 2,0))->push = 0;
+	new Operator(")",    10, 2,0, 0);
 
-	new Operator("[",  -10, 1,3); // array index
+	Operator* op_arrayidx = new Operator("[",  -10, 1,3); // array index
 	//new Operator("[",   10, 0,3); // unused [val] notation
-	(new Operator("]",   10, 3,0))->push = 0;
+	new Operator("]",   10, 3,0, 0);
 
-	Grammar::push(new Grammar(grammar->symbols, NULL, NULL, 0, 0));
+	Grammar::push(new Grammar());
 		BlockDef* objblock = new BlockDef("obj");
 
 		new Operator(":",    16, 1,1);
 
-		(new Operator("[",  -10, 1,3))->localgrammar = grammar; // instance count
+		new Operator("[",  -10, 1,3, grammar_constexpr); // instance count
 
 	Grammar::pop();
 
 
 
-	Grammar::push(NULL);
+	Grammar::push();
 		BlockDef* conblock = new BlockDef("con");
 
-		new Operator("#" ,   0,  0,1); // check precedence of this
 		new Operator("=",    12, 1,1);
 		new Operator(",",    13, 1,1);
+		new Operator("#" ,   14,  0,1); // check precedence of this
 
 	Grammar::pop();
 
-	Grammar::push(NULL);
+	Grammar::push();
 		BlockDef* varblock = new BlockDef("var");
+
+		opcode_new("byte", "");
+		opcode_new("word", "");
+		opcode_new("long", "");
 
 		new Operator(",",    13, 1,1);
 		new Operator("",     15, 1,1);
@@ -103,11 +110,26 @@ Grammar* register_spin(void)
 
 	Grammar::pop();
 
-	Grammar::push(NULL);
+	Grammar::push();
 		BlockDef* pubblock = new BlockDef("pub");
 		BlockDef* priblock = new BlockDef("pri");
 
 		grammar->hasindent = 1;
+
+		opcode_new("if", "");
+		opcode_new("ifnot", "");
+		opcode_new("elseif", "");
+		opcode_new("elseifnot", "");
+		opcode_new("else", "");
+
+		opcode_new("repeat", "");
+		opcode_new("from", "");
+		opcode_new("to", "");
+		opcode_new("step", "");
+		opcode_new("until", "");
+		opcode_new("while", "");
+
+		opcode_new("case", "");
 
 		new Operator("\\" ,  -2,  0,1); // \try
 
@@ -159,18 +181,27 @@ Grammar* register_spin(void)
 
 		new Operator("..",   12.5,1,1);
 		new Operator(",",    13, 1,1);
-		new Operator(":",    14, 1,-1);
 		new Operator("",     15, 1,1);
 
+		Grammar::push();
+			new Operator(":",    14, 1,1);
+
+			op_funccall->localgrammar = grammar;
+		Grammar::pop();
+
+		op_arrayidx->localgrammar = grammar;
+
+		new Operator(":",    14, 1,0); // TODO: don't error if this is before the above grammar block
 	Grammar::pop();
 
-	Grammar::push(new Grammar(grammar->symbols, NULL, NULL, 0, 0));
+	Grammar::push(new Grammar());
 
 		//new Operator("(",   -10, 1,2); // function args
 		new Operator("(",    10, 0,2);
 		new Operator(")",    10, 2,0);
 
-		(new Operator("[",  -10, 1,3))->localgrammar = pubblock->bodygrammar; // array size
+		// TODO: make the new way of doing this work
+		new Operator("[",  -10, 1,3, pubblock->bodygrammar); // array size
 		new Operator(",",    0, 1,1);
 		new Operator(":",    1, 0,1);
 		new Operator("|",    1, 0,1);
@@ -182,7 +213,7 @@ Grammar* register_spin(void)
 		priblock->headgrammar = grammar;
 	Grammar::pop();
 
-	Grammar::push(NULL);
+	Grammar::push();
 		BlockDef* datblock = new BlockDef("dat");
 
 		grammar->haslabels = 1;

@@ -12,33 +12,37 @@
 
 Grammar* grammar;
 
+symtabentry* usersymbols;
 
-Symbol* Symbol::get(char* p)
+
+template<class T> chartree<T>* chartree<T>::create(void)
 {
-	Symbol* sym = NULL;
-
-	for (symscope* scope = grammar->symbols; scope != NULL && sym == NULL; scope = scope->parent)
-	{
-		sym = Symbol::get_if_exist(scope->symtab, p);
-	}
-
-	if (sym != NULL)
-	{
-		return sym;
-	}
-
-	sym = new Symbol(p);
-
-	symtabentry* symtab = symtabentry_get(grammar->symbols->symtab, p);
-
-	symtab[0].curr = sym;
-
-	return sym;
+	//return calloc(256, sizeof(symtabentry));
+	return new chartree<T>[256]();
 }
 
-Symbol* Symbol::get_if_exist(symtabentry* base, char* p)
+template<class T> chartree<T>* chartree<T>::clone(chartree<T>* optab)
 {
-	symtabentry* symtab = base;
+	if (optab == NULL)
+	{
+		return NULL;
+	}
+
+	chartree<T>* optab2 = chartree<T>::create();
+
+	optab2[0].curr = optab[0].curr;
+
+	for (int i=1; i < 256; i++)
+	{
+		optab2[i].next = chartree<T>::clone(optab[i].next);
+	}
+
+	return optab2;
+}
+
+template<class T> T* chartree<T>::get_if_exist(chartree<T>* base, char* p)
+{
+	chartree<T>* symtab = base;
 
 	while (*p != 0)
 	{
@@ -63,9 +67,9 @@ Symbol* Symbol::get_if_exist(symtabentry* base, char* p)
 	return symtab[0].curr;
 }
 
-symtabentry* symtabentry_get(symtabentry* base, char* p)
+template<class T> chartree<T>* chartree<T>::get(chartree<T>* base, char* p)
 {
-	symtabentry* symtab = base;
+	chartree<T>* symtab = base;
 
 	while (*p != 0)
 	{
@@ -74,10 +78,10 @@ symtabentry* symtabentry_get(symtabentry* base, char* p)
 #endif
 		unsigned char c = tolower(*p);
 
-		symtabentry* symtab2 = symtab[c].next;
+		chartree<T>* symtab2 = symtab[c].next;
 		if (symtab2 == NULL)
 		{
-			symtab2 = symtab[c].next = symtabentry_new();
+			symtab2 = symtab[c].next = chartree<T>::create();
 		}
 		symtab = symtab2;
 		p++;
@@ -89,13 +93,54 @@ symtabentry* symtabentry_get(symtabentry* base, char* p)
 	return symtab;
 }
 
+Symbol* Symbol::get(symtabentry* symtab, char* p)
+{
+	symtabentry* symtab2 = symtabentry::get(symtab, p);
+
+	if (symtab2[0].curr != NULL)
+	{
+		return symtab2[0].curr;
+	}
+
+	Symbol* sym = new Symbol(p);
+
+	symtab2[0].curr = sym;
+
+	return sym;
+}
+
+Symbol* Symbol::get(char* p)
+{
+	Symbol* sym = NULL;
+
+	sym = symtabentry::get_if_exist(usersymbols, p);
+
+	if (sym == NULL)
+	{
+		sym = symtabentry::get_if_exist(grammar->symbols, p);
+	}
+
+	if (sym != NULL)
+	{
+		return sym;
+	}
+
+	sym = new Symbol(p);
+
+	symtabentry* symtab = symtabentry::get(usersymbols, p);
+
+	symtab[0].curr = sym;
+
+	return sym;
+}
+
 Symbol* Symbol::define(char* s, symboltype type)
 {
-	Symbol* sym = Symbol::get(s);
+	Symbol* sym = Symbol::get(grammar->symbols, s);
 
 	if (sym->defined)
 	{
-		printf("Symbol %s already defined as %s!\n", s, sym->type == SYM_LABEL ? "label" : sym->type == SYM_OPCODE ? "Opcode" : "unknown");
+		printf("Symbol %s already defined as %s!\n", s, sym->type == SYM_LABEL ? "label" : sym->type == SYM_OPCODE ? "opcode" : "unknown");
 		return NULL;
 	}
 
@@ -116,7 +161,7 @@ void Symbol::print()
 		}
 		case SYM_OPCODE:
 		{
-			printf("Opcode ");
+			printf("opcode ");
 			break;
 		}
 		case SYM_BLOCK:
@@ -145,80 +190,41 @@ Block::Block(std::vector<Block*>* blocks, BlockDef* def, std::vector<Line*>** li
 	*lines = &this->lines;
 }
 
-
-
-symtabentry* symtabentry_new(void)
-{
-	//return calloc(256, sizeof(symtabentry));
-	return new symtabentry[256]();
-}
-
-void symscope_push(symtabentry* symtab)
-{
-	symscope* oldsymbols = grammar->symbols;
-
-	symscope* symbols = new symscope();
-	symbols->parent = oldsymbols;
-
-	if (symtab == NULL)
-	{
-		symtab = symtabentry_new();
-	}
-
-	symbols->symtab = symtab;
-
-	grammar->symbols = symbols;
-}
-
-symtabentry* symscope_pop(void)
-{
-	symscope* newsymbols = grammar->symbols->parent;
-
-	symtabentry* symtab = grammar->symbols->symtab;
-
-	symscope* oldsymbols = grammar->symbols;
-
-	grammar->symbols = newsymbols;
-
-	free(oldsymbols);
-
-	return symtab;
-}
-
-static optabentry* optabentry_new(void)
-{
-	//return calloc(256, sizeof(optabentry));
-	return new optabentry[256]();
-}
-
-static optabentry* optabentry_clone(optabentry* optab)
-{
-	if (optab == NULL)
-	{
-		return NULL;
-	}
-
-	optabentry* optab2 = optabentry_new();
-
-	optab2[0].curr = optab[0].curr;
-
-	for (int i=1; i < 256; i++)
-	{
-		optab2[i].next = optabentry_clone(optab[i].next);
-	}
-
-	return optab2;
-}
-
 static std::vector<Grammar*> grammarstack;
 
-Grammar::Grammar(symscope* symbols, optabentry* operators, optabentry* preoperators, int haslabels, int hasindent)
+Grammar::Grammar()
+                : symbols(symtabentry::create()), operators(optabentry::create()), preoperators(optabentry::create()),
+                  haslabels(0), hasindent(0)
+{
+}
+
+Grammar::Grammar(symtabentry* symbols, optabentry* operators, optabentry* preoperators, int haslabels, int hasindent)
                 : haslabels(haslabels), hasindent(hasindent)
 {
-	//this->symbols = symbols != NULL ? symbols : symscope_push();
-	this->symbols = symbols;
-	this->operators = operators != NULL ? operators : optabentry_new();
-	this->preoperators = preoperators != NULL ? preoperators : optabentry_new();
+	this->symbols = symbols != NULL ? symbols : symtabentry::create();
+	//this->symbols = symbols;
+	this->operators = operators != NULL ? operators : optabentry::create();
+	this->preoperators = preoperators != NULL ? preoperators : optabentry::create();
+}
+
+void Grammar::push()
+{
+	// save old Grammar
+	Grammar* oldgrammar = grammar;
+
+	grammarstack.push_back(grammar);
+
+
+	// make new Grammar if newgrammar == NULL
+	grammar = new Grammar(symtabentry::clone(oldgrammar->symbols),
+	                       optabentry::clone(oldgrammar->operators),
+	                       optabentry::clone(oldgrammar->preoperators),
+	                       oldgrammar->haslabels, oldgrammar->hasindent
+	                      );
+
+#if LIBDEBUG
+	printf("Grammar::push(new %p)\n", grammar);
+#endif
 }
 
 void Grammar::push(Grammar* newgrammar)
@@ -229,13 +235,7 @@ void Grammar::push(Grammar* newgrammar)
 	grammarstack.push_back(grammar);
 
 
-	// make new Grammar if newgrammar == NULL
-	grammar = newgrammar != NULL ? newgrammar :
-	           new Grammar(oldgrammar->symbols,
-	                       optabentry_clone(oldgrammar->operators),
-			       optabentry_clone(oldgrammar->preoperators),
-			       oldgrammar->haslabels, oldgrammar->hasindent
-	                      );
+	grammar = newgrammar;
 
 #if LIBDEBUG
 	printf("Grammar::push(%p)\n", grammar);
@@ -296,10 +296,13 @@ BlockDef::BlockDef(char* s)
 
 // Operator
 
-static inline int operator_alias(optabentry* optab, char* p, Operator* op, int overwriteif)
+int Operator::alias(optabentry* optab, char* p, int overwriteif)
 {
 	const char* s2 = p;
 
+#if 1
+	optab = optabentry::get(optab, p);
+#else
 	//printf("operator_alias(\"%s\"): ", p);
 	while (*p != 0)
 	{
@@ -311,13 +314,14 @@ static inline int operator_alias(optabentry* optab, char* p, Operator* op, int o
 		optabentry* optab2 = optab[c].next;
 		if (optab2 == NULL)
 		{
-			optab2 = optab[c].next = optabentry_new();
+			optab2 = optab[c].next = optabentry::create();
 		}
 		optab = optab2;
 		p++;
 	}
 #if LIBDEBUG >= 2
 	putchar('\n');
+#endif
 #endif
 	// if there's already something here, and both are actually supposed to
 	//  have left arguments (this is the left argument table), then complain
@@ -329,14 +333,14 @@ static inline int operator_alias(optabentry* optab, char* p, Operator* op, int o
 		printf("Operator \"%s\" already defined: \"%s\" (%d, %d): ", s2, op2->name, op2->leftarg, op2->rightarg);
 #endif
 
-		if (!overwriteif || (op->leftarg && op2->leftarg))
+		if (!overwriteif || (this->leftarg && op2->leftarg))
 		{
 #if LIBDEBUG
 			printf("erroring\n");
 #endif
 			return 1;
 		}
-		else if (op->leftarg)
+		else if (this->leftarg)
 		{
 #if LIBDEBUG
 			printf("overwriting\n");
@@ -351,41 +355,33 @@ static inline int operator_alias(optabentry* optab, char* p, Operator* op, int o
 		}
 	}
 
-	optab[0].curr = op;
+	optab[0].curr = this;
 
 	return 0;
 }
 
-Operator::Operator(char* s, double precedence, int leftarg, int rightarg)
+Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg, int _push, Grammar* _localgrammar)
+                  : name(_name), precedence(_precedence), leftarg(_leftarg), rightarg(_rightarg), push(_push), localgrammar(_localgrammar)
 {
 #if LIBDEBUG
 	printf("operator_new \"%s\" (%d, %d, %g)\n", s, leftarg, rightarg, precedence);
 #endif
 
-	this->precedence = precedence;
-	this->name = s;
-
-	this->leftarg = leftarg;
-	this->rightarg = rightarg;
-
-	this->push = 1;
-
-	this->localgrammar = NULL;
 
 	if (leftarg == 0)
 	{
-		if (operator_alias(grammar->preoperators, s, this, 0))
+		if (alias(grammar->preoperators, name, 0))
 		{
-			printf("prefix Operator \"%s\" already defined!\n", s);
+			printf("prefix operator \"%s\" already defined!\n", name);
 			throw 0;
 		}
 	}
 
 	//if (leftarg >= 0)
 	{
-		if (operator_alias(grammar->operators, s, this, 1))
+		if (alias(grammar->operators, name, 1))
 		{
-			printf("Operator \"%s\" already defined!\n", s);
+			printf("operator \"%s\" already defined!\n", name);
 			throw 0;
 		}
 	}
@@ -464,7 +460,12 @@ Operand* ident_new_intern(char** p)
 {
 	Operand* operand = ident_new(*p);
 
-	char* s = operand->val.ident->name;
+	Symbol* sym = operand->val.ident;
+
+	char* s = sym->name;
+
+	// TODO: if one of s or p is the definition, throw out the other one
+	//  (how?)
 
 	if (s != *p)
 	{
@@ -662,7 +663,7 @@ void Operand::print()
 		}
 		default:
 		{
-			printf("? type=%d ?", this->type);
+			printf("(? type=%d ?)", this->type);
 
 			break;
 		}
@@ -710,10 +711,5 @@ void parserlib_init(void)
 {
 	grammar = new Grammar();
 
-	symscope_push(NULL);
-
-	grammar->operators = optabentry_new();
-	grammar->preoperators = optabentry_new();
-	grammar->haslabels = 0;
-	grammar->hasindent = 0;
+	usersymbols = symtabentry::create();
 }

@@ -8,7 +8,7 @@
 
 #include "parser.hpp"
 
-#define PARSERDEBUG 0
+#define PARSERDEBUG 4
 
 
 int tabwidth = 8;
@@ -42,7 +42,7 @@ static char* tok2str(char* start, char* end)
 	return s;
 }
 
-static void printstacks(void)
+void printstacks(void)
 {
 	printf("vstack: ");
 	for (std::vector<Operand*>::iterator it = vstack->begin(); it != vstack->end(); ++it)
@@ -124,6 +124,15 @@ static void fold(Operator* nextop)
 		Operand* rhs = NULL;
 		if (topop->rightarg && (topop->rightarg >= 0 || vstack->size() >= 2))
 		{
+			if (vstack->empty())
+			{
+				printf("Missing rhs of \"%s\"!\n", topop->name);
+#if PARSERDEBUG
+				printstacks();
+#endif
+				exit(1);
+			}
+
 			rhs = vstack->back();vstack->pop_back();
 			if (rhs == NULL)
 			{
@@ -132,16 +141,24 @@ static void fold(Operator* nextop)
 			}
 		}
 
-		int hash_hack = 0;
 
 		Operand* lhs = NULL;
 		if (topop->leftarg)
 		{
+			if (vstack->empty())
+			{
+				printf("Missing lhs of \"%s\"!\n", topop->name);
+#if PARSERDEBUG
+				printstacks();
+#endif
+				exit(1);
+			}
+
 			Operand* lhs_peek = vstack->back();
-			if (topop->leftarg == -1 && lhs_peek != NULL && lhs_peek->type == Operand::IDENT && (lhs_peek->val.ident->type != SYM_LABEL && lhs_peek->val.ident->type != SYM_UNKNOWN))
+			if (0 && lhs_peek != NULL && lhs_peek->type == Operand::IDENT && (lhs_peek->val.ident->type != SYM_LABEL && lhs_peek->val.ident->type != SYM_UNKNOWN))
 			{
 				// deal with cases like "jmp #label"
-				hash_hack = 1;
+				ostack->push_back(grammar->operators[0].curr);
 			}
 			else
 			{
@@ -170,10 +187,6 @@ static void fold(Operator* nextop)
 
 		vstack->push_back(binop_new(topop, lhs, rhs));
 
-		if (hash_hack)
-		{
-			ostack->push_back(grammar->operators[0].curr);
-		}
 
 		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
 		{
@@ -240,6 +253,14 @@ folddone:
 #endif
 }
 
+static void push_null_operator()
+{
+#if PARSERDEBUG >= 4
+	printf("push_null_operator\n");
+#endif
+	fold(grammar->operators[0].curr);
+}
+
 static unsigned int lineno = 0;
 
 static void eatdocblockcomment(char** pp)
@@ -256,6 +277,11 @@ static void eatdocblockcomment(char** pp)
 				*pp = p;
 				return;
 			}
+		}
+
+		if (*p == '\n')
+		{
+			lineno++;
 		}
 	}
 }
@@ -660,9 +686,28 @@ ident_l:
 			}
 		}
 
+		if (sym->type == SYM_OPCODE)
+		{
+			push_null_operator();
+		}
+
 		vstack->push_back(val);
 
-		goto op;
+
+		if (sym->type == SYM_OPCODE)
+		{
+#if PARSERDEBUG >= 3
+			printf("ident: goto expr\n");
+#endif
+			goto expr;
+		}
+		else
+		{
+#if PARSERDEBUG >= 3
+			printf("ident: goto op\n");
+#endif
+			goto op;
+		}
 
 	}
 
@@ -905,6 +950,9 @@ op:
 
 		ts = p;
 
+		Operator* lastop = NULL;
+		char* lastop_p = p+1;
+
 	operator_mid:
 
 		while (*p && currop[tolower(*p)].next != NULL)
@@ -912,6 +960,15 @@ op:
 #if PARSERDEBUG >= 4
 			printf("operator char: '%c'\n", *p);
 #endif
+			if (currop[0].curr != NULL)
+			{
+#if PARSERDEBUG >= 3
+				printf("operator potential end: '%c'\n", *p);
+#endif
+				lastop = currop[0].curr;
+				lastop_p = p+1;
+			}
+
 			currop = currop[tolower(*p)].next;
 
 			p++;
@@ -921,7 +978,16 @@ op:
 
 		if (op == NULL)
 		{
-			fold(grammar->operators[0].curr);
+			p = lastop_p;
+			op = lastop;
+#if PARSERDEBUG >= 3
+			printf("operator: backtracking to '%c', op = \"%s\"\n", *p, op != NULL ? op->name : "NULL");
+#endif
+		}
+
+		if (op == NULL)
+		{
+			push_null_operator();
 	/*
 	// TODO: Running this commented out results in an infinte loop.  Commenting this
 	//  out and just leaving the "goto ident" seems to result in some, if not all,
@@ -932,6 +998,9 @@ op:
 #endif
 			p = ts; // backtracking! Blech!
 	*/
+#if PARSERDEBUG >= 3
+			printf("ident->op\n");
+#endif
 			goto ident;
 		}
 
@@ -942,7 +1011,7 @@ op:
 
 		if (!op->leftarg)
 		{
-			fold(grammar->operators[0].curr);
+			push_null_operator();
 		}
 
 		fold(op);
@@ -961,7 +1030,7 @@ op:
 error:
 	printf("Parse error at %d:%ld: '%c' (%02X)\n", lineno, p-linestart, *p, *p);
 #if PARSERDEBUG
-				printstacks();
+	printstacks();
 #endif
 
 	return NULL;
