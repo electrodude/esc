@@ -7,11 +7,11 @@ Grammar* register_spin(void)
 	// basic universal Spin operators
 
 	// grammar object containing things legal in constant expressions
-	Grammar* grammar_constexpr = grammar;
+	Grammar* grammar_global = grammar;
 
 	// . and #
 	new Operator("." ,  -11,  1,1);
-	new Operator("#" ,  -11,  -1,1);
+	Operator* op_constant = new Operator("#" ,  -11,  1,1);
 
 	new Operator("~" ,   0,  0,1);
 	new Operator("~~",   0,  0,1);
@@ -77,7 +77,7 @@ Grammar* register_spin(void)
 
 		new Operator(":",    16, 1,1);
 
-		new Operator("[",  -10, 1,3, grammar_constexpr); // instance count
+		new Operator("[",  -10, 1,3, grammar_global); // instance count
 
 	Grammar::pop();
 
@@ -397,6 +397,8 @@ Grammar* register_spin(void)
 		modifier_new("nr",           "xxxxxx_xx0x_xxxx_xxxxxxxxx_xxxxxxxxx");
 
 	Grammar::pop();
+
+	Grammar::putblocknames();
 
 	return conblock->bodygrammar;
 }

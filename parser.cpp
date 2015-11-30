@@ -8,13 +8,24 @@
 
 #include "parser.hpp"
 
-#define PARSERDEBUG 4
+#define PARSERDEBUG 3
+/*
+ * Debug levels:
+ * 0: none
+ * 1: lines
+ * 2: folding
+ * 3: tokens
+ * 4: characters
+ * 5: characters and comments
+ */
+
+#define INDENTDEBUG 0
 
 
 int tabwidth = 8;
 
 static std::vector<Operand*>* vstack;
-static std::vector<Operator*>* ostack;
+static std::vector<OperatorSet*>* ostack;
 
 static char* tok2stra(char* base, char* start, char* end)
 {
@@ -55,21 +66,27 @@ void printstacks(void)
 	}
 	printf("\n");
 	printf("ostack: ");
-	for (std::vector<Operator*>::iterator it = ostack->begin(); it != ostack->end(); ++it)
+	for (std::vector<OperatorSet*>::iterator it = ostack->begin(); it != ostack->end(); ++it)
 	{
-		Operator* op = *it;
+		OperatorSet* op = *it;
 
 		printf("\"%s\" ", op->name);
 	}
 	printf("\n");
 }
 
-static void fold(Operator* nextop)
+static void fold(OperatorSet* nextopset, tokentype prevtokentype)
 {
+	Operator* nextop = NULL;
+	if (nextopset != NULL)
+	{
+		nextop = nextopset->preselectop(vstack, prevtokentype);
+	}
+
 #if PARSERDEBUG >= 3
 	if (nextop != NULL)
 	{
-		printf("fold: nextop = \"%s\" (%d, %d)\n", nextop->name, nextop->leftarg, nextop->rightarg);
+		printf("fold: nextop = \"%s\" (%d)\n", nextop->name, nextop->leftarg);
 	}
 	else
 	{
@@ -100,15 +117,19 @@ static void fold(Operator* nextop)
 
 	Operator* topop;
 
-	while (!ostack->empty() // stop if stack is empty
-	       && (topop = ostack->back(),
-                   (nextop == NULL // continue all the way if nextop == NULL
-		    || (nextop->leftarg >= 2 || (topop->rightarg < 2 && nextop->precedence > topop->precedence)) // stop if right bracket or failed precedence test
-		   ))
-	        //&& ((nextop != NULL && topop->rightarg == nextop->leftarg) || topop->rightarg == 0) // unless tos is left bracket, stop if mat
-	      )
+	while (!ostack->empty())
 	{
-		topop = ostack->back();ostack->pop_back();
+		OperatorSet* topopset = ostack->back();
+
+		topop = topopset->selectop(vstack, nextop, prevtokentype);
+
+		if (nextop != NULL && !(topop->rightarg < 2 && nextop->precedence > topop->precedence))
+		{
+			break;
+		}
+
+		ostack->pop_back();
+
 #if PARSERDEBUG >= 3
 		printf("fold: op \"%s\" (%d, %d)\n", topop->name, topop->leftarg, topop->rightarg);
 #endif
@@ -122,7 +143,7 @@ static void fold(Operator* nextop)
 		}
 
 		Operand* rhs = NULL;
-		if (topop->rightarg && (topop->rightarg >= 0 || vstack->size() >= 2))
+		if (topop->rightarg)
 		{
 			if (vstack->empty())
 			{
@@ -134,6 +155,7 @@ static void fold(Operator* nextop)
 			}
 
 			rhs = vstack->back();vstack->pop_back();
+
 			if (rhs == NULL)
 			{
 				printf("Error: rhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
@@ -154,20 +176,12 @@ static void fold(Operator* nextop)
 				exit(1);
 			}
 
-			Operand* lhs_peek = vstack->back();
-			if (0 && lhs_peek != NULL && lhs_peek->type == Operand::IDENT && (lhs_peek->val.ident->type != SYM_LABEL && lhs_peek->val.ident->type != SYM_UNKNOWN))
+			lhs = vstack->back();vstack->pop_back();
+
+			if (lhs == NULL)
 			{
-				// deal with cases like "jmp #label"
-				ostack->push_back(grammar->operators[0].curr);
-			}
-			else
-			{
-				lhs = vstack->back();vstack->pop_back();
-				if (lhs == NULL && topop->rightarg >= 0)
-				{
-					printf("Error: lhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
-					exit(1);
-				}
+				printf("Error: lhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
+				exit(1);
 			}
 		}
 
@@ -195,15 +209,20 @@ static void fold(Operator* nextop)
 #endif
 			goto folded;
 		}
+
+#if PARSERDEBUG
+		printstacks();
+#endif
 	}
 
 #if PARSERDEBUG >= 3
 	printf("fold: done\n");
 #endif
 
+	/*
 	if (!ostack->empty())
 	{
-		Operator* topop = ostack->back();
+		Operator* topop = ostack->back()->selectop();
 
 		if (nextop != NULL && topop->rightarg >= 2 && nextop->leftarg >= 2 && topop->rightarg != nextop->leftarg)
 		{
@@ -211,12 +230,14 @@ static void fold(Operator* nextop)
 			exit(1);
 		}
 	}
+	*/
 
 folded:
 
+	/*
 	if (!ostack->empty())
 	{
-		Operator* topop = ostack->back();
+		Operator* topop = ostack->back()->selectop();
 
 		if (nextop == NULL && topop->rightarg >= 2)
 		{
@@ -224,6 +245,7 @@ folded:
 			exit(1);
 		}
 	}
+	*/
 
 	if (ostack->empty() && nextop && NULL && nextop->leftarg >= 2)
 	{
@@ -245,7 +267,7 @@ folddone:
 #if PARSERDEBUG >= 3
 		printf("fold: push\n");
 #endif
-		ostack->push_back(nextop);
+		ostack->push_back(nextopset->clone_unmaster());
 	}
 
 #if PARSERDEBUG >= 3
@@ -258,7 +280,7 @@ static void push_null_operator()
 #if PARSERDEBUG >= 4
 	printf("push_null_operator\n");
 #endif
-	fold(grammar->operators[0].curr);
+	fold(grammar->operators[0].curr, tokentype::SYMBOL);
 }
 
 static unsigned int lineno = 0;
@@ -334,7 +356,7 @@ std::vector<Block*>* parser(char* p)
 
 	optabentry* currop;
 
-	int pc = 5;
+	tokentype expectnexttoken = SYMBOL;
 
 	lineno = 1;
 	char* linestart = p;
@@ -371,14 +393,10 @@ std::vector<Block*>* parser(char* p)
 	goto line;
 
 newline:
+	fold(NULL, expectnexttoken);
 #if PARSERDEBUG >= 3
 	printf("\\n\n");
 #endif
-
-#if PARSERDEBUG >= 3
-	printf("bodygrammar\n");
-#endif
-	grammar = currblockdef->bodygrammar;
 
 	if (!vstack->empty())
 	{
@@ -388,7 +406,7 @@ newline:
 		{
 			if (prevline != NULL && indent > prevline->indent)
 			{
-#if PARSERDEBUG
+#if INDENTDEBUG
 				printf("indent push: %d %d\n", prevline->indentdepth, prevline->indent);
 #endif
 				indentstack.push_back(prevline);
@@ -397,7 +415,7 @@ newline:
 			while (!indentstack.empty() && indentstack.back()->indent >= indent)
 			{
 				Line* oldindentparent = indentstack.back();indentstack.pop_back();
-#if PARSERDEBUG
+#if INDENTDEBUG
 				printf("indent pop: %d %d\n", oldindentparent->indentdepth, oldindentparent->indent);
 #endif
 			}
@@ -405,7 +423,7 @@ newline:
 			currline->indent = indent;
 			currline->parent = indentstack.back();
 			currline->indentdepth = indentstack.empty() == false ? indentstack.back()->indentdepth+1 : 0;
-#if PARSERDEBUG
+#if INDENTDEBUG
 			printf("%d %d ", currline->indentdepth, currline->indent);
 			// no newline, continued at currline->operand->print()
 #endif
@@ -434,6 +452,13 @@ newline:
 #if PARSERDEBUG >= 3
 	printf("Line %d\n", lineno);
 #endif
+
+#if PARSERDEBUG >= 3
+	printf("bodygrammar\n");
+#endif
+	grammar = currblockdef->bodygrammar;
+
+	expectnexttoken = SYMBOL;
 
 	indent = 0;
 
@@ -481,29 +506,30 @@ expr_entry:
 	//printf("opcode\n");
 #endif
 	{
-		if (!ostack->empty())
+		while (!ostack->empty())
 		{
-			Operator* stray = ostack->back();
+			OperatorSet* stray = ostack->back();
 			printf("Error at %d:%ld: stray operator on operator stack: %s\n", lineno, p-linestart, stray->name);
-			goto error;
+			//goto error;
+			ostack->pop_back();
 		}
 	}
 	{
-		if (!vstack->empty())
+		while (!vstack->empty())
 		{
 			Operand* stray = vstack->back();
 			printf("Error at %d:%ld: stray value on value stack: ", lineno, p-linestart);
 			stray->print();
 			printf("\n");
-			goto error;
+			//goto error;
+			vstack->pop_back();
 		}
 	}
 
 expr:
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	printf("expr: '%c'\n", *p);
 #endif
-	currop = grammar->preoperators;
 
 	switch (*p)
 	{
@@ -514,22 +540,194 @@ expr:
 		case '"' : goto string;
 		case '%' : p++; goto binnum;
 		case '$' : p++; goto here_or_hex;
-		case '\'': fold(NULL); goto comment;
+		case '\'': goto comment;
 		case '\n':
-		case '\r': fold(NULL); p++; goto newline;
+		case '\r': p++; goto newline;
 	}
 
 	if (*p >= '0' && *p <= '9') goto decnum;
-	if (islabelchar[*p] >= 3 || (grammar->haslabels && islabelchar[*p] == 1)) goto ident;
 
-	if ((*p == '\n' || *p == '\r') && vstack->empty())
+	ts = p;
+
 	{
-		goto newline;
+		optabentry* currop = grammar->operators;
+
+		bool islabel = (islabelchar[*p] >= 2 || (grammar->haslabels && islabelchar[*p] == 1));
+		bool waslabel = islabel;
+
+		OperatorSet* lastop = currop[0].curr;
+		char* lastop_p = p;
+
+#if PARSERDEBUG >= 4
+		printf("token: '%c', islabel = %d, currop = %p, lastop = \"%s\"\n", *p, islabel, currop, lastop != NULL ? lastop->name : "NULL");
+#endif
+
+		do
+		{
+			waslabel = islabel;
+
+			if (!(islabelchar[*p] >= 2 || (grammar->haslabels && islabelchar[*p] == 1)))
+			{
+				islabel = false;
+			}
+
+			if (currop != NULL)
+			{
+				currop = currop[tolower(*p)].next;
+
+				if (currop != NULL && currop[0].curr != NULL)
+				{
+#if PARSERDEBUG >= 4
+					printf("op candidate\n");
+#endif
+					lastop = currop[0].curr;
+					lastop_p = p+1;
+				}
+			}
+
+			p++;
+
+#if PARSERDEBUG >= 4
+			printf("token: '%c', islabel = %d, currop = %p, lastop = \"%s\"\n", *p, islabel, currop, lastop != NULL ? lastop->name : "NULL");
+#endif
+		}
+		while (*p && (islabel || currop != NULL));
+
+		if (*p == 0)
+		{
+			printf("Unexpected end of file!\n");
+
+			goto error;
+		}
+
+		char* s = NULL;
+		Symbol* sym = NULL;
+		if (waslabel)
+		{
+			s = tok2str(ts, p-1);
+
+			sym = symtabentry::get_if_exist(grammar->symbols, s);
+		}
+
+#if PARSERDEBUG >= 4
+		printf("token: \"%s\", islabel = %d, waslabel = %d currop = %p, lastop = \"%s\", sym = \"%s\"\n", s, islabel, waslabel, currop, lastop != NULL ? lastop->name : "NULL", sym != NULL ? sym->name : "NULL");
+#endif
+
+		if (sym != NULL)
+		{
+			printf("sym: ");
+			sym->print();
+			printf("\n");
+		}
+
+		if (lastop != NULL && (currop != NULL || !waslabel))
+		{
+			printf("op: \"%s\"\n", lastop->name);
+			p = lastop_p;
+
+			fold(lastop, expectnexttoken);
+
+			expectnexttoken = SYMBOL;
+
+			free(s);
+		}
+		else if (waslabel)
+		{
+			printf("ident: \"%s\"\n", s);
+
+			p--;
+
+
+			if (expectnexttoken == OPERATOR)
+			{
+				push_null_operator();
+			}
+
+			expectnexttoken = OPERATOR;
+
+			Operand* val = ident_new_intern(&s);
+
+			Symbol* sym = val->val.ident;
+
+			if (vstack->empty())
+			{
+				if (grammar->haslabels)
+				{
+					// DAT blocks have local labels, which we need to scope now
+					if (sym->type == Symbol::UNKNOWN)
+					{
+						// *ts as opposed to *s since s has lastgloballabel prepended to it
+						if (*ts != ':' && *ts != '.')
+						{
+							lastgloballabel = s;
+						}
+
+						sym->type = Symbol::LABEL;
+					}
+					else if (sym->type == Symbol::LABEL)
+					{
+						printf("Duplicate symbol \"%s\" at %d:%ld\n", s, lineno, p-linestart);
+						//goto error;
+					}
+				}
+
+				if (sym->type == Symbol::BLOCK)
+				{
+#if PARSERDEBUG
+					printf("\nBlock \"%s\"\n", s);
+#endif
+
+					currblockdef = sym->data.blockdef;
+
+					new Block(blocks, currblockdef, &lines);
+
+#if PARSERDEBUG >= 3
+					printf("headgrammar\n");
+#endif
+					grammar = currblockdef->headgrammar;
+
+					indentstack.clear();
+
+
+					expectnexttoken = SYMBOL;
+
+					goto line;
+				}
+			}
+			else
+			{
+				if (sym->type == Symbol::BLOCK)
+				{
+					printf("Error: block name not first token on line!\n");
+
+					goto error;
+				}
+			}
+
+			if (sym->type == Symbol::OPCODE)
+			{
+				//push_null_operator();
+			}
+
+			vstack->push_back(val);
+		}
+		else
+		{
+			p--;
+
+			char* s = tok2str(ts, p);
+			printf("Unknown token: \"%s\"\n", s);
+
+			free(s);
+
+			exit(1);
+		}
 	}
 
-	currop = currop[tolower(*p)].next;
+	goto expr;
 
 
+#if 0==1
 	if (currop != NULL)
 	{
 		p++;
@@ -555,7 +753,7 @@ expr:
 #if PARSERDEBUG >= 3
 		printf("prefix op operator: \"%s\"\n", op->name);
 #endif
-		fold(op);
+		fold(op, expectnexttoken);
 
 		goto expr;
 	}
@@ -603,7 +801,7 @@ ident_l:
 #if PARSERDEBUG >= 3
 				printf("prefix ident operator: \"%s\"\n", op->name);
 #endif
-				fold(op);
+				fold(op, expectnexttoken);
 
 				p = p2;
 
@@ -630,71 +828,10 @@ ident_l:
 #if PARSERDEBUG >= 3
 		printf("ident: \"%s\"\n", s);
 #endif
-		Operand* val = ident_new_intern(&s);
-
-		Symbol* sym = val->val.ident;
-
-		if (vstack->empty())
-		{
-			if (grammar->haslabels)
-			{
-				// DAT blocks have local labels, which we need to scope now
-				if (sym->type == SYM_UNKNOWN)
-				{
-					// *ts as opposed to *s since s has lastgloballabel prepended to it
-					if (*ts != ':' && *ts != '.')
-					{
-						lastgloballabel = s;
-					}
-
-					sym->type = SYM_LABEL;
-				}
-				else if (sym->type == SYM_LABEL)
-				{
-					printf("Duplicate symbol \"%s\" at %d:%ld\n", s, lineno, p-linestart);
-					//goto error;
-				}
-			}
-
-			if (sym->type == SYM_BLOCK)
-			{
-#if PARSERDEBUG
-				printf("\nBlock \"%s\"\n", s);
-#endif
-
-				currblockdef = sym->data.blockdef;
-
-				new Block(blocks, currblockdef, &lines);
-
-#if PARSERDEBUG >= 3
-				printf("headgrammar\n");
-#endif
-				grammar = currblockdef->headgrammar;
-
-				indentstack.clear();
-
-				goto line;
-			}
-		}
-		else
-		{
-			if (sym->type == SYM_BLOCK)
-			{
-				printf("Error: block name not first token on line!\n");
-
-				goto error;
-			}
-		}
-
-		if (sym->type == SYM_OPCODE)
-		{
-			push_null_operator();
-		}
-
-		vstack->push_back(val);
 
 
-		if (sym->type == SYM_OPCODE)
+		/*
+		if (sym->type == Symbol::OPCODE)
 		{
 #if PARSERDEBUG >= 3
 			printf("ident: goto expr\n");
@@ -708,9 +845,10 @@ ident_l:
 #endif
 			goto op;
 		}
+		*/
 
 	}
-
+#endif
 
 string:
 	p++;
@@ -732,7 +870,7 @@ string_mid:
 	vstack->push_back(string_new(tok2str(ts, p)));
 	p++;
 
-	goto op;
+	goto expr;
 
 
 
@@ -915,9 +1053,17 @@ num_done:
 #if PARSERDEBUG >= 3
 	printf("num: %d\n", n);
 #endif
+
+	if (expectnexttoken == OPERATOR)
+	{
+		push_null_operator();
+	}
+
+	expectnexttoken = OPERATOR;
+
 	vstack->push_back(int_new(n));
 
-	goto op;
+	goto expr;
 
 here_or_hex:
 #if PARSERDEBUG >= 3
@@ -928,8 +1074,9 @@ here_or_hex:
 	if (isxdigit(*p) || *p == '_') goto hexnum;
 
 	vstack->push_back(ident_new("$"));
-	goto op;
+	goto expr;
 
+#if 0==1
 op:
 	{
 		currop = grammar->operators;
@@ -943,8 +1090,8 @@ op:
 			case ' ' :
 			case '\t': p++; goto op;
 			case '\n':
-			case '\r': fold(NULL); p++; goto newline;
-			case '\'': fold(NULL); p++; goto comment;
+			case '\r': fold(NULL, expectnexttoken); p++; goto newline;
+			case '\'': fold(NULL, expectnexttoken); p++; goto comment;
 			case '{' : eatblockcomment(&p); goto op;
 		}
 
@@ -1014,7 +1161,7 @@ op:
 			push_null_operator();
 		}
 
-		fold(op);
+		fold(op, expectnexttoken);
 
 		if (op->rightarg)
 		{
@@ -1025,6 +1172,7 @@ op:
 			goto op;
 		}
 	}
+#endif
 
 
 error:
@@ -1087,16 +1235,16 @@ static inline void islabelchar_r(size_t start, size_t end, char c)
 void parser_init(void)
 {
 	islabelchar_r(0,   127,   0);
-	islabelchar_r('A', 'Z',   3);
-	islabelchar_r('a', 'z',   3);
-	islabelchar       ['_'] = 3;
+	islabelchar_r('A', 'Z',   2);
+	islabelchar_r('a', 'z',   2);
+	islabelchar       ['_'] = 2;
 	islabelchar       [':'] = 1;
 	//islabelchar       ['.'] = 3;
 	islabelchar_r('0', '9',   2);
-	islabelchar_r(128, 255,   3); // UTF-8 support
+	islabelchar_r(128, 255,   2); // UTF-8 support
 
 	vstack = new std::vector<Operand*>();
-	ostack = new std::vector<Operator*>();
+	ostack = new std::vector<OperatorSet*>();
 
 	parserlib_init();
 }

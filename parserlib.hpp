@@ -1,6 +1,8 @@
 #pragma once
 
+#include <string>
 #include <vector>
+#include <set>
 
 #include "parallax_types.hpp"
 
@@ -41,23 +43,24 @@ private:
 class Symbol;
 typedef chartree<Symbol> symtabentry;
 
-class Operator;
-typedef chartree<Operator> optabentry;
+class OperatorSet;
+typedef chartree<OperatorSet> optabentry;
 
 class Grammar
 {
 public:
 	Grammar();
-	Grammar(symtabentry* symbols, optabentry* operators = NULL, optabentry* preoperators = NULL, int haslabels = 0, int hasindent = 0);
+	Grammar(symtabentry* symbols, optabentry* operators = NULL, int haslabels = 0, int hasindent = 0);
 	static void push();
 	static void push(Grammar* newgrammar);
 	static Grammar* pop(void);
-	void print(void);
+	//void print() const;
 	static void reset(Grammar* grammar);
+
+	static void putblocknames();
 
 	symtabentry* symbols;
 	optabentry* operators;
-	optabentry* preoperators;
 
 	int haslabels : 1;
 	int hasindent : 1;
@@ -87,23 +90,29 @@ public:
 	char* name;
 };
 
-// Symbol
+// symbol
 
 class Operand;
 class Opcode;
 
-enum symboltype
+enum tokentype
 {
-	SYM_UNKNOWN,
-	SYM_LABEL,
-	SYM_OPCODE,
-	SYM_BLOCK,
+	OPERATOR,
+	SYMBOL,
 };
 
 class Symbol
 {
 public:
-	Symbol(char* _name) : type(SYM_UNKNOWN), name(_name), defined(0) {}
+	enum symboltype
+	{
+		UNKNOWN,
+		LABEL,
+		OPCODE,
+		BLOCK,
+	};
+
+	Symbol(char* _name) : type(Symbol::UNKNOWN), name(_name), defined(0) {}
 	union
 	{
 		Operand* val;
@@ -116,9 +125,12 @@ public:
 
 	static Symbol* get(char* p);
 	static Symbol* get(symtabentry* symtab, char* p);
+	static Symbol* define(Grammar* grammar, char* s, symboltype type);
 	static Symbol* define(char* s, symboltype type);
 
-	void print();
+	static Symbol* chartree_clone(Symbol* sym);
+
+	void print() const;
 };
 
 // instruction
@@ -134,7 +146,7 @@ class instruction
 };
 */
 
-// Operator
+// operator
 class Operator
 {
 public:
@@ -146,20 +158,61 @@ public:
 
 	static Operator* get(optabentry* optab, char* name);
 
-	int alias(optabentry* optab, char* p, int overwriteif);
+	bool preaccepts(const std::vector<Operand*>* vstack, tokentype prevtokentype) const;
+	bool accepts(const std::vector<Operand*>* vstack, const Operator* nextop, tokentype prevtokentype) const;
 
 	char* name;
+
 	double precedence;
 
 	int leftarg;
 	int rightarg;
 
-	int push : 1;
+	std::set<operand_type> lefttypes;
+	std::set<operand_type> righttypes;
 
 	Grammar* localgrammar;
+
+	int push;
+
+	OperatorSet* set;
 };
 
-// Operator table
+class OperatorSet
+{
+public:
+	OperatorSet();
+	OperatorSet(const OperatorSet& original);
+	~OperatorSet();
+
+	OperatorSet* clone_unmaster() const;
+
+	void addop(Operator* op);
+
+	// preselectop
+	// returns a representative operator that has the correct left behavior
+	// expects vstack to only have lhs operand
+	Operator* preselectop(const std::vector<Operand*>* vstack, tokentype prevtokentype) const;
+
+	// selectop
+	// returns exact operator to use based on all operands
+	// expects all operands to be on stack
+	Operator* selectop(const std::vector<Operand*>* vstack, const Operator* nextop, tokentype prevtokentype);
+
+	static OperatorSet* chartree_clone(OperatorSet* opset);
+
+	char* name;
+
+	std::vector<Operator*> candidates;
+
+private:
+	Operator* selectedop;
+
+	bool mastercopy;
+};
+
+
+// operator table
 
 extern Grammar* grammar;
 
@@ -195,6 +248,13 @@ public:
 
 
 // expression
+enum operand_type
+{
+	VALUE,
+	OPCODE,
+	OPERATOR,
+};
+
 class Operand
 {
 public:
@@ -211,9 +271,9 @@ public:
 		} binop;
 	} val;
 
-	void print();
+	void print() const;
 private:
-	void print_list();
+	void print_list() const;
 };
 
 
@@ -235,3 +295,14 @@ Operand* string_new(char* s);
 Operand* binop_new(Operator* op, Operand* lhs, Operand* rhs);
 
 void parserlib_init(void);
+
+class CompilerError
+{
+public:
+	void print() const;
+
+	unsigned int line;
+	unsigned int column;
+
+	std::string msg;
+};

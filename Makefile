@@ -1,4 +1,4 @@
-CXXFLAGS=-g -Og
+CXXFLAGS=-g -O0
 #-fsanitize=address -fno-omit-frame-pointer
 LDFLAGS=-lm
 

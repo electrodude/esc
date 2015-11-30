@@ -44,7 +44,19 @@ void compile_file(char* path)
 #if COMPILER_DEBUG >= 2
 	printf("parse\n");
 #endif
-	std::vector<Block*>* blocks = parser(s);
+	std::vector<Block*>* blocks = NULL;
+	try
+	{
+		blocks = parser(s);
+	}
+	catch (CompilerError* err)
+	{
+		err->print();
+	}
+	catch (char const* err)
+	{
+		printf("Error: %s\n", err);
+	}
 
 	if (blocks == NULL)
 	{
