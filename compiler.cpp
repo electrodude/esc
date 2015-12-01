@@ -74,7 +74,12 @@ void compile_file(char* path)
 	for (std::vector<Block*>::iterator it = blocks->begin(); it != blocks->end(); ++it)
 	{
 		Block* currblock = *it;
-		printf("\nblock \"%s\"\n", currblock->def->name);
+		printf("\nblock \"%s\"", currblock->def->name);
+		if (currblock->haserrors)
+		{
+			printf(" - has errors");
+		}
+		printf("\n");
 		std::vector<Line*>& lines = currblock->lines;
 		for (std::vector<Line*>::iterator it2 = lines.begin(); it2 != lines.end(); ++it2)
 		{

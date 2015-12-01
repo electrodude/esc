@@ -87,6 +87,8 @@ public:
 	std::vector<Line*> lines;
 
 	char* name;
+
+	bool haserrors;
 };
 
 
@@ -142,6 +144,8 @@ public:
 	bool preaccepts(const std::vector<Operand*>* vstack, tokentype prevtokentype) const;
 	bool accepts(const std::vector<Operand*>* vstack, const Operator* nextop, tokentype prevtokentype) const;
 
+	void print() const;
+
 	char* name;
 
 	double leftprecedence;
@@ -184,6 +188,8 @@ public:
 	Operator* selectop(const std::vector<Operand*>* vstack, const Operator* nextop);
 
 	static OperatorSet* chartree_clone(OperatorSet* opset);
+
+	void print() const;
 
 	char* name;
 
@@ -313,6 +319,7 @@ public:
 	symboltype type;
 	int defined;
 
+	static Symbol* get_if_exist(char* p);
 	static Symbol* get(char* p);
 	static Symbol* get(symtabentry* symtab, char* p);
 	static Symbol* define(Grammar* grammar, char* s, symboltype type);

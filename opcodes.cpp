@@ -119,20 +119,23 @@ Grammar* register_spin(void)
 
 		grammar->hasindent = 1;
 
-		opcode_new("if", "");
-		opcode_new("ifnot", "");
-		opcode_new("elseif", "");
-		opcode_new("elseifnot", "");
-		opcode_new("else", "");
+		new Operator("if",        20,  0,1);
+		new Operator("ifnot",     20,  0,1);
+		new Operator("elseif",    20,  0,1);
+		new Operator("elseifnot", 20,  0,1);
+		new Operator("else",      20,  0,0);
 
-		opcode_new("repeat", "");
-		opcode_new("from", "");
-		opcode_new("to", "");
-		opcode_new("step", "");
-		opcode_new("until", "");
-		opcode_new("while", "");
+		new Operator("repeat",    20,  0,1);
+		new Operator("repeat",    20,  0,0);
+		new Operator("from",      20,  1,1);
+		new Operator("to",        20,  1,1);
+		new Operator("step",      20,  1,1);
+		new Operator("until",     20,  0,1);
+		new Operator("while",     20,  0,1);
 
-		opcode_new("case", "");
+		new Operator("case",      20,  0,1);
+
+
 
 		new Operator("\\" ,  -2,  0,1); // \try
 
@@ -224,6 +227,10 @@ Grammar* register_spin(void)
 		new Operator("#" ,   0,  0,1); // check precedence of this
 		new Operator(",",    13, 1,1);
 		new Operator("",     15, 1,1);
+
+		new Operator("long", 14.5, 0, 1);
+		new Operator("word", 14.5, 0, 1);
+		new Operator("byte", 14.5, 0, 1);
 
 		opcode_new("org", "");
 		opcode_new("res", "");

@@ -113,7 +113,7 @@ Symbol* Symbol::get(symtabentry* symtab, char* p)
 	return sym;
 }
 
-Symbol* Symbol::get(char* p)
+Symbol* Symbol::get_if_exist(char* p)
 {
 	Symbol* sym = NULL;
 
@@ -123,6 +123,26 @@ Symbol* Symbol::get(char* p)
 	{
 		sym = symtabentry::get_if_exist(grammar->symbols, p);
 	}
+
+	return sym;
+
+	if (sym != NULL)
+	{
+		return sym;
+	}
+
+	sym = new Symbol(p);
+
+	symtabentry* symtab = symtabentry::get(usersymbols, p);
+
+	symtab[0].curr = sym;
+
+	return sym;
+}
+
+Symbol* Symbol::get(char* p)
+{
+	Symbol* sym = Symbol::get_if_exist(p);
 
 	if (sym != NULL)
 	{
@@ -195,12 +215,9 @@ void Symbol::print() const
 	printf(")");
 }
 
-Block::Block(std::vector<Block*>* blocks, BlockDef* def, std::vector<Line*>** lines)
+Block::Block(std::vector<Block*>* blocks, BlockDef* _def, std::vector<Line*>** lines)
+	: def(_def), name(_def->name), haserrors(false)
 {
-	this->def = def;
-
-	this->name = def->name;
-
 	blocks->push_back(this);
 
 	*lines = &this->lines;
@@ -433,7 +450,9 @@ Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg,
 	set = opset;
 
 #if LIBDEBUG
-	printf("operator_new \"%s\" (%d, %d, %g, %g)\n", opset->name, leftarg, rightarg, leftprecedence, rightprecedence);
+	printf("operator_new ");
+	this->print();
+	printf("\n");
 #endif
 }
 
@@ -516,7 +535,9 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 			const Operand* rhs = vstack->end()[-1];
 			const Operand* lhs = vstack->end()[-2];
 
-			printf("Operator::accepts \"%s\" binary: both operands: ", this->name);
+			printf("Operator::accepts ");
+			this->print();
+			printf(" binary: both operands: ");
 			lhs->print();
 			printf(", ");
 			rhs->print();
@@ -538,7 +559,9 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 
 			const Operand* lhs = vstack->end()[-1];
 
-			printf("Operator::accepts \"%s\" binary: only left operand", this->name);
+			printf("Operator::accepts ");
+			this->print();
+			printf(" binary: only left operand");
 			lhs->print();
 			printf("\n");
 
@@ -606,8 +629,33 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 	}
 	else // nullary
 	{
+		// Nullary operators can't be used in expressions.  They're only really for things like 'else'
+		if (nextop != NULL && !nextop->leftarg) // if the next operator doesn't expect this
+		{
+			return false;
+		}
+
+		if (!vstack->empty())
+		{
+			return false;
+		}
+
 		return true;
 	}
+}
+
+void Operator::print() const
+{
+	printf("(operator \"%s\" %d, %d, ", this->name, this->leftarg, this->rightarg);
+	if (this->leftprecedence != this->rightprecedence)
+	{
+		printf("(%g, %g)", this->leftprecedence, this->rightprecedence);
+	}
+	else
+	{
+		printf("%g", this->leftprecedence);
+	}
+	printf(")");
 }
 
 
@@ -655,9 +703,12 @@ Operator* OperatorSet::preselectop(const std::vector<Operand*>* vstack, tokentyp
 			{
 				if (candidate->leftarg != preselectedop->leftarg)
 				{
-					printf("multiple candidates for OperatorSet::preselectop: \"%s\" (%d, %d), \"%s\" (%d, %d)\n",
-					      preselectedop->name, preselectedop->leftarg, preselectedop->rightarg,
-					      candidate->name, candidate->leftarg, candidate->rightarg);
+					printf("multiple candidates for OperatorSet::preselectop: ");
+					preselectedop->print();
+					printf(", ");
+					candidate->print();
+					printf("\n");
+
 					throw "Multiple candidates!";
 				}
 			}
@@ -668,13 +719,17 @@ Operator* OperatorSet::preselectop(const std::vector<Operand*>* vstack, tokentyp
 
 	if (preselectedop == NULL)
 	{
-		printf("Error: preselectop: no operator candidates remain for \"%s\" out of %ld\n", name, candidates.size());
+		printf("Error: preselectop: no operator candidates remain for ");
+		this->print();
+		printf(" out of %ld\n", candidates.size());
+
 		for (std::vector<Operator*>::const_iterator it = candidates.begin(); it != candidates.end(); ++it)
 		{
 			const Operator* candidate = *it;
 
-			printf("Rejected candidate: \"%s\" (%d, %d)\n",
-				      candidate->name, candidate->leftarg, candidate->rightarg);
+			printf("Rejected candidate: ");
+			this->print();
+			printf("\n");
 		}
 		printf("vstack: ");
 		for (std::vector<Operand*>::const_iterator it = vstack->begin(); it != vstack->end(); ++it)
@@ -696,8 +751,11 @@ Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Opera
 {
 	if (mastercopy)
 	{
-		printf("error: attempt to call OperatorSet::selectop on master copy of \"%s\"\n", name);
-		exit(1);
+		printf("error: attempt to call OperatorSet::selectop on master copy of ");
+		this->print();
+		printf("\n");
+
+		throw "selectop on master copy";
 	}
 
 	if (selectedop != NULL)
@@ -710,16 +768,20 @@ Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Opera
 	{
 		Operator* candidate = *it;
 
-		printf("OperatorSet::selectop candidate: \"%s\" (%d, %d)\n",
-			      candidate->name, candidate->leftarg, candidate->rightarg);
+		printf("OperatorSet::selectop candidate: ");
+		candidate->print();
+		printf("\n");
 
 		if (candidate->accepts(vstack, nextop, prevtokentype))
 		{
 			if (selectedop != NULL)
 			{
-				printf("multiple candidates for OperatorSet::selectop: \"%s\" (%d, %d), \"%s\" (%d, %d)\n",
-				      selectedop->name, selectedop->leftarg, selectedop->rightarg,
-				      candidate->name, candidate->leftarg, candidate->rightarg);
+				printf("multiple candidates for OperatorSet::selectop: ");
+				selectedop->print();
+				printf(", ");
+				candidate->print();
+				printf("\n");
+
 				throw "Multiple candidates!";
 			}
 
@@ -729,12 +791,16 @@ Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Opera
 
 	if (selectedop == NULL)
 	{
-		printf("Error: selectop: no operator candidates remain for \"%s\" out of %ld\n", name, candidates.size());
+		printf("Error: selectop: no operator candidates remain for ");
+		this->print();
+		printf(" out of %ld\n", candidates.size());
 		for (std::vector<Operator*>::iterator it = candidates.begin(); it != candidates.end(); ++it)
 		{
 			Operator* candidate = *it;
-			printf("Rejected candidate: \"%s\" (%d, %d)\n",
-				      candidate->name, candidate->leftarg, candidate->rightarg);
+
+			printf("Rejected candidate: ");
+			this->print();
+			printf("\n");
 		}
 		printf("vstack: ");
 		for (std::vector<Operand*>::const_iterator it = vstack->begin(); it != vstack->end(); ++it)
@@ -760,6 +826,12 @@ OperatorSet* OperatorSet::chartree_clone(OperatorSet* opset)
 	}
 
 	return new OperatorSet(*opset);
+}
+
+void OperatorSet::print() const
+{
+	printf("(operatorset \"%s\"", this->name);
+	printf(")");
 }
 
 

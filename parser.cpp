@@ -8,7 +8,7 @@
 
 #include "parser.hpp"
 
-#define PARSERDEBUG 3
+#define PARSERDEBUG 0
 /*
  * Debug levels:
  * 0: none
@@ -155,7 +155,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 #if PARSERDEBUG
 				printstacks();
 #endif
-				exit(1);
+				throw "missing rhs";
 			}
 
 			rhs = vstack->back();vstack->pop_back();
@@ -163,7 +163,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 			if (rhs == NULL)
 			{
 				printf("Error: rhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
-				exit(1);
+				throw "rhs == NULL";
 			}
 		}
 
@@ -177,7 +177,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 #if PARSERDEBUG
 				printstacks();
 #endif
-				exit(1);
+				throw "missing lhs";
 			}
 
 			lhs = vstack->back();vstack->pop_back();
@@ -185,7 +185,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 			if (lhs == NULL)
 			{
 				printf("Error: lhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
-				exit(1);
+				throw "lhs == NULL";
 			}
 		}
 
@@ -218,7 +218,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
 		{
 #if PARSERDEBUG >= 3
-			printf("fold: function break\n");
+			printf("fold: close bracket break\n");
 #endif
 			goto folded;
 		}
@@ -398,7 +398,7 @@ std::vector<Block*>* parser(char* p)
 
 	std::vector<Line*>* lines;
 
-	new Block(blocks, currblockdef, &lines);
+	Block* currblock = new Block(blocks, currblockdef, &lines);
 
 	Line* currline = new Line();
 	Line* prevline = NULL;
@@ -629,7 +629,7 @@ expr:
 		{
 			s = tok2str(ts, p-1);
 
-			sym = symtabentry::get_if_exist(grammar->symbols, s);
+			sym = Symbol::get_if_exist(s);
 		}
 
 #if PARSERDEBUG >= 4
@@ -730,6 +730,7 @@ expr:
 				{
 					printf("Error: block name not first token on line!\n");
 
+					currblock->haserrors = true;
 					goto error;
 				}
 			}
@@ -1031,12 +1032,14 @@ here_or_hex:
 
 
 error:
+	currblock->haserrors = true;
+
 	printf("Parse error at %d:%ld: '%c' (%02X)\n", lineno, p-linestart, *p, *p);
 #if PARSERDEBUG
 	printstacks();
 #endif
 
-	return NULL;
+	return blocks;
 
 #if 0
 	while (*p != 0 && *p != '\n' && *p != '\r') p++;
