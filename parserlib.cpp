@@ -7,6 +7,8 @@
 
 #define LIBDEBUG 0
 
+#define PARSERDEBUG 0
+
 
 // Symbol table
 
@@ -355,7 +357,9 @@ bool TokenDesc::matches(const tokentype type) const
 {
 	if (type == OPERATOR)
 	{
+#if PARSERDEBUG
 		printf("operator\n");
+#endif
 		if (this->acceptsOperator)
 		{
 			return true;
@@ -363,7 +367,9 @@ bool TokenDesc::matches(const tokentype type) const
 	}
 	else if (type == LITERAL)
 	{
+#if PARSERDEBUG
 		printf("literal\n");
+#endif
 		if (this->acceptsLiteral)
 		{
 			return true;
@@ -371,7 +377,9 @@ bool TokenDesc::matches(const tokentype type) const
 	}
 	else if (type == SYMBOL)
 	{
+#if PARSERDEBUG
 		printf("symbol\n");
+#endif
 		if (this->acceptsSymbol)
 		{
 			return true;
@@ -379,7 +387,9 @@ bool TokenDesc::matches(const tokentype type) const
 	}
 	else if (type == OPCODE)
 	{
+#if PARSERDEBUG
 		printf("opcode\n");
+#endif
 		if (this->acceptsOpcode)
 		{
 			return true;
@@ -462,13 +472,17 @@ bool Operator::preaccepts(const std::vector<Operand*>* vstack, tokentype prevtok
 	{
 		if (!lefttypes.matches(prevtokentype))
 		{
+#if PARSERDEBUG
 			printf("reject: wrong left token\n");
+#endif
 			return false;
 		}
 
 		if (vstack->empty())
 		{
+#if PARSERDEBUG
 			printf("reject: vstack empty\n");
+#endif
 			return false;
 		}
 
@@ -476,7 +490,9 @@ bool Operator::preaccepts(const std::vector<Operand*>* vstack, tokentype prevtok
 
 		if (!lhs->matches(lefttypes))
 		{
+#if PARSERDEBUG
 			printf("reject: doesn't match\n");
+#endif
 			return false;
 		}
 
@@ -486,7 +502,9 @@ bool Operator::preaccepts(const std::vector<Operand*>* vstack, tokentype prevtok
 	{
 		if (!lefttypes.matches(prevtokentype))
 		{
+#if PARSERDEBUG
 			printf("reject: wrong left token\n");
+#endif
 			return false;
 		}
 
@@ -508,7 +526,9 @@ bool Operator::preaccepts(const std::vector<Operand*>* vstack, tokentype prevtok
 	{
 		if (!lefttypes.matches(prevtokentype))
 		{
+#if PARSERDEBUG
 			printf("reject: wrong left token\n");
+#endif
 			return false;
 		}
 
@@ -526,7 +546,9 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 	{
 		if (!lefttypes.matches(prevtokentype))
 		{
+#if PARSERDEBUG
 			printf("reject: wrong left token\n");
+#endif
 			return false;
 		}
 
@@ -535,6 +557,7 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 			const Operand* rhs = vstack->end()[-1];
 			const Operand* lhs = vstack->end()[-2];
 
+#if PARSERDEBUG
 			printf("Operator::accepts ");
 			this->print();
 			printf(" binary: both operands: ");
@@ -542,6 +565,7 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 			printf(", ");
 			rhs->print();
 			printf("\n");
+#endif
 
 			if (!lhs->matches(lefttypes))
 			{
@@ -559,11 +583,13 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 
 			const Operand* lhs = vstack->end()[-1];
 
+#if PARSERDEBUG
 			printf("Operator::accepts ");
 			this->print();
 			printf(" binary: only left operand");
 			lhs->print();
 			printf("\n");
+#endif
 
 			if (nextop == NULL || nextop->leftarg)
 			{
@@ -582,7 +608,9 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 	{
 		if (!lefttypes.matches(prevtokentype))
 		{
+#if PARSERDEBUG
 			printf("reject: wrong left token\n");
+#endif
 			return false;
 		}
 
@@ -604,7 +632,9 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 	{
 		if (!lefttypes.matches(prevtokentype))
 		{
+#if PARSERDEBUG
 			printf("reject: wrong left token\n");
+#endif
 			return false;
 		}
 
@@ -768,9 +798,11 @@ Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Opera
 	{
 		Operator* candidate = *it;
 
+#if PARSERDEBUG
 		printf("OperatorSet::selectop candidate: ");
 		candidate->print();
 		printf("\n");
+#endif
 
 		if (candidate->accepts(vstack, nextop, prevtokentype))
 		{
@@ -794,6 +826,7 @@ Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Opera
 		printf("Error: selectop: no operator candidates remain for ");
 		this->print();
 		printf(" out of %ld\n", candidates.size());
+
 		for (std::vector<Operator*>::iterator it = candidates.begin(); it != candidates.end(); ++it)
 		{
 			Operator* candidate = *it;
@@ -830,8 +863,7 @@ OperatorSet* OperatorSet::chartree_clone(OperatorSet* opset)
 
 void OperatorSet::print() const
 {
-	printf("(operatorset \"%s\"", this->name);
-	printf(")");
+	printf("(operatorset \"%s\")", this->name);
 }
 
 

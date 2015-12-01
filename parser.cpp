@@ -636,16 +636,20 @@ expr:
 		printf("token: \"%s\", islabel = %d, waslabel = %d currop = %p, lastop = \"%s\", sym = \"%s\"\n", s, islabel, waslabel, currop, lastop != NULL ? lastop->name : "NULL", sym != NULL ? sym->name : "NULL");
 #endif
 
+#if PARSERDEBUG >= 3
 		if (sym != NULL)
 		{
 			printf("sym: ");
 			sym->print();
 			printf("\n");
 		}
+#endif
 
 		if (lastop != NULL && ((prevop != NULL && sym == NULL) || !waslabel))
 		{
+#if PARSERDEBUG >= 3
 			printf("op: \"%s\"\n", lastop->name);
+#endif
 			p = lastop_p;
 
 			if (prevtoken == OPCODE)
@@ -670,7 +674,9 @@ expr:
 		}
 		else if (waslabel)
 		{
+#if PARSERDEBUG >= 3
 			printf("ident: \"%s\"\n", s);
+#endif
 
 			p--;
 
@@ -746,6 +752,7 @@ expr:
 
 			if (expectnexttoken == OPERATOR)
 			{
+#if PARSERDEBUG >= 3
 				if (sym->type != Symbol::OPCODE && prevtoken != OPERATOR && prevtoken != OPCODE)
 				{
 					printf("warning: not operator or opcode");
@@ -760,6 +767,7 @@ expr:
 					printf("\n");
 					//goto error;
 				}
+#endif
 				push_null_operator(prevtoken);
 			}
 
