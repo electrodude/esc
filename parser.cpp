@@ -125,8 +125,9 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 
 		if (nextop != NULL && nextop->leftprecedence <= topop->rightprecedence)
 		{
-
+#if PARSERDEBUG >= 3
 			printf("precedence break: %g <= %g\n", nextop != NULL ? nextop->leftprecedence : nanf(NULL), topop->rightprecedence);
+#endif
 			break;
 		}
 
@@ -210,6 +211,8 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 		{
 			vstack->push_back(rhs);
 		}
+
+		delete topopset;
 
 
 		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
@@ -370,7 +373,7 @@ std::vector<Block*>* parser(char* p)
 
 	tokentype expectnexttoken = SYMBOL;
 
-	tokentype prevtoken = SYMBOL;
+	tokentype prevtoken = OPERATOR;
 
 	lineno = 1;
 	char* linestart = p;
@@ -474,7 +477,7 @@ newline:
 
 	expectnexttoken = SYMBOL;
 
-	prevtoken = SYMBOL;
+	prevtoken = OPERATOR;
 
 	indent = 0;
 
@@ -716,7 +719,7 @@ expr:
 
 					expectnexttoken = SYMBOL;
 
-					prevtoken = SYMBOL;
+					prevtoken = OPERATOR;
 
 					goto line;
 				}
@@ -731,7 +734,14 @@ expr:
 				}
 			}
 
-			vstack->push_back(sym);
+#if 0
+			if (expectnexttoken == OPERATOR && sym->type == Symbol::OPCODE)
+			{
+				push_null_operator(OPCODE);
+
+				expectnexttoken = SYMBOL;
+			}
+#endif
 
 			if (expectnexttoken == OPERATOR)
 			{
@@ -751,6 +761,8 @@ expr:
 				}
 				push_null_operator(prevtoken);
 			}
+
+			vstack->push_back(sym);
 
 			if (sym->type == Symbol::OPCODE)
 			{

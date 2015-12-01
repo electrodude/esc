@@ -394,6 +394,7 @@ Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg,
 	if (name[0] == 0)
 	{
 		lefttypes.acceptsOpcode = true;
+		lefttypes.acceptsOperator = true;
 		righttypes.acceptsOpcode = true;
 	}
 
@@ -590,6 +591,8 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 			{
 				return false;
 			}
+
+			return true;
 		}
 
 		const Operand* rhs = vstack->back();
