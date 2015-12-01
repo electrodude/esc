@@ -75,7 +75,7 @@ void printstacks(void)
 	printf("\n");
 }
 
-static void fold(OperatorSet* nextopset, tokentype prevtokentype)
+static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 {
 	Operator* nextop = NULL;
 	if (nextopset != NULL)
@@ -97,12 +97,12 @@ static void fold(OperatorSet* nextopset, tokentype prevtokentype)
 	if (nextop != NULL && nextop->localgrammar != NULL)
 	{
 #if PARSERDEBUG >= 2
-		printf("op grammar push\n");
+		printf("op grammar push: \"%s\"\n", nextop->name);
 #endif
 		Grammar::push(nextop->localgrammar);
 	}
 
-	if (nextop != NULL && nextop->leftarg == 0 && nextop->rightarg >= 2)
+	if (nextop != NULL && !nextop->leftarg && nextop->rightarg >= 2)
 	{
 		// don't fold if left bracket
 
@@ -121,10 +121,12 @@ static void fold(OperatorSet* nextopset, tokentype prevtokentype)
 	{
 		OperatorSet* topopset = ostack->back();
 
-		topop = topopset->selectop(vstack, nextop, prevtokentype);
+		topop = topopset->selectop(vstack, nextop);
 
-		if (nextop != NULL && !(topop->rightarg < 2 && nextop->precedence > topop->precedence))
+		if (nextop != NULL && nextop->leftprecedence <= topop->rightprecedence)
 		{
+
+			printf("precedence break: %g <= %g\n", nextop != NULL ? nextop->leftprecedence : nanf(NULL), topop->rightprecedence);
 			break;
 		}
 
@@ -133,7 +135,7 @@ static void fold(OperatorSet* nextopset, tokentype prevtokentype)
 #if PARSERDEBUG >= 3
 		printf("fold: op \"%s\" (%d, %d)\n", topop->name, topop->leftarg, topop->rightarg);
 #endif
-
+		/*
 		if (topop != NULL && nextop != NULL && topop->leftarg == 0 && topop->rightarg >= 2 && nextop->leftarg >= 2 && nextop->rightarg == 0)
 		{
 #if PARSERDEBUG >= 3
@@ -141,6 +143,7 @@ static void fold(OperatorSet* nextopset, tokentype prevtokentype)
 #endif
 			goto folded;
 		}
+		*/
 
 		Operand* rhs = NULL;
 		if (topop->rightarg)
@@ -188,7 +191,7 @@ static void fold(OperatorSet* nextopset, tokentype prevtokentype)
 		if (topop->localgrammar != NULL)
 		{
 #if PARSERDEBUG >= 2
-			printf("op grammar pop\n");
+			printf("op grammar pop: \"%s\"\n", topop->name);
 #endif
 			Grammar* oldgrammar = Grammar::pop();
 
@@ -199,13 +202,20 @@ static void fold(OperatorSet* nextopset, tokentype prevtokentype)
 			}
 		}
 
-		vstack->push_back(binop_new(topop, lhs, rhs));
+		if (topop->tree)
+		{
+			vstack->push_back(new OperandBinop(topop, lhs, rhs));
+		}
+		else
+		{
+			vstack->push_back(rhs);
+		}
 
 
 		if (topop != NULL && nextop != NULL && nextop->leftarg >= 2 && topop->rightarg == nextop->leftarg)
 		{
 #if PARSERDEBUG >= 3
-			printf("fold function break\n");
+			printf("fold: function break\n");
 #endif
 			goto folded;
 		}
@@ -267,20 +277,22 @@ folddone:
 #if PARSERDEBUG >= 3
 		printf("fold: push\n");
 #endif
-		ostack->push_back(nextopset->clone_unmaster());
+		ostack->push_back(nextopset->prepare_push(prevtokentype));
 	}
 
 #if PARSERDEBUG >= 3
 	printstacks();
 #endif
+
+	return nextop;
 }
 
-static void push_null_operator()
+static void push_null_operator(tokentype prevtoken)
 {
 #if PARSERDEBUG >= 4
 	printf("push_null_operator\n");
 #endif
-	fold(grammar->operators[0].curr, tokentype::SYMBOL);
+	fold(grammar->operators[0].curr, prevtoken);
 }
 
 static unsigned int lineno = 0;
@@ -358,6 +370,8 @@ std::vector<Block*>* parser(char* p)
 
 	tokentype expectnexttoken = SYMBOL;
 
+	tokentype prevtoken = SYMBOL;
+
 	lineno = 1;
 	char* linestart = p;
 
@@ -393,7 +407,7 @@ std::vector<Block*>* parser(char* p)
 	goto line;
 
 newline:
-	fold(NULL, expectnexttoken);
+	fold(NULL, prevtoken);
 #if PARSERDEBUG >= 3
 	printf("\\n\n");
 #endif
@@ -460,6 +474,8 @@ newline:
 
 	expectnexttoken = SYMBOL;
 
+	prevtoken = SYMBOL;
+
 	indent = 0;
 
 	goto line;
@@ -510,7 +526,7 @@ expr_entry:
 		{
 			OperatorSet* stray = ostack->back();
 			printf("Error at %d:%ld: stray operator on operator stack: %s\n", lineno, p-linestart, stray->name);
-			//goto error;
+			goto error;
 			ostack->pop_back();
 		}
 	}
@@ -521,7 +537,7 @@ expr_entry:
 			printf("Error at %d:%ld: stray value on value stack: ", lineno, p-linestart);
 			stray->print();
 			printf("\n");
-			//goto error;
+			goto error;
 			vstack->pop_back();
 		}
 	}
@@ -562,6 +578,8 @@ expr:
 		printf("token: '%c', islabel = %d, currop = %p, lastop = \"%s\"\n", *p, islabel, currop, lastop != NULL ? lastop->name : "NULL");
 #endif
 
+		optabentry* prevop = NULL;
+
 		do
 		{
 			waslabel = islabel;
@@ -570,6 +588,8 @@ expr:
 			{
 				islabel = false;
 			}
+
+			prevop = currop;
 
 			if (currop != NULL)
 			{
@@ -620,14 +640,28 @@ expr:
 			printf("\n");
 		}
 
-		if (lastop != NULL && (currop != NULL || !waslabel))
+		if (lastop != NULL && ((prevop != NULL && sym == NULL) || !waslabel))
 		{
 			printf("op: \"%s\"\n", lastop->name);
 			p = lastop_p;
 
-			fold(lastop, expectnexttoken);
+			if (prevtoken == OPCODE)
+			{
+				push_null_operator(prevtoken);
+			}
+
+			Operator* nextop = fold(lastop, prevtoken);
 
 			expectnexttoken = SYMBOL;
+
+			if (nextop->leftarg && !nextop->rightarg)
+			{
+				prevtoken = SYMBOL;
+			}
+			else
+			{
+				prevtoken = OPERATOR;
+			}
 
 			free(s);
 		}
@@ -638,16 +672,7 @@ expr:
 			p--;
 
 
-			if (expectnexttoken == OPERATOR)
-			{
-				push_null_operator();
-			}
-
-			expectnexttoken = OPERATOR;
-
-			Operand* val = ident_new_intern(&s);
-
-			Symbol* sym = val->val.ident;
+			Symbol* sym = ident_new_intern(&s);
 
 			if (vstack->empty())
 			{
@@ -691,6 +716,8 @@ expr:
 
 					expectnexttoken = SYMBOL;
 
+					prevtoken = SYMBOL;
+
 					goto line;
 				}
 			}
@@ -704,12 +731,37 @@ expr:
 				}
 			}
 
-			if (sym->type == Symbol::OPCODE)
+			vstack->push_back(sym);
+
+			if (expectnexttoken == OPERATOR)
 			{
-				//push_null_operator();
+				if (sym->type != Symbol::OPCODE && prevtoken != OPERATOR && prevtoken != OPCODE)
+				{
+					printf("warning: not operator or opcode");
+					if (prevtoken == LITERAL)
+					{
+						printf(": literal");
+					}
+					else if (prevtoken == SYMBOL)
+					{
+						printf(": symbol");
+					}
+					printf("\n");
+					//goto error;
+				}
+				push_null_operator(prevtoken);
 			}
 
-			vstack->push_back(val);
+			if (sym->type == Symbol::OPCODE)
+			{
+				prevtoken = OPCODE;
+			}
+			else
+			{
+				prevtoken = SYMBOL;
+			}
+
+			expectnexttoken = OPERATOR;
 		}
 		else
 		{
@@ -726,129 +778,6 @@ expr:
 
 	goto expr;
 
-
-#if 0==1
-	if (currop != NULL)
-	{
-		p++;
-
-		while (*p && currop[tolower(*p)].next != NULL)
-		{
-#if PARSERDEBUG >= 4
-			printf("prefix operator char: '%c'\n", *p);
-#endif
-			currop = currop[tolower(*p)].next;
-
-			p++;
-		}
-
-		Operator* op = currop[0].curr;
-
-		if (op == NULL)
-		{
-			goto error;
-		}
-
-
-#if PARSERDEBUG >= 3
-		printf("prefix op operator: \"%s\"\n", op->name);
-#endif
-		fold(op, expectnexttoken);
-
-		goto expr;
-	}
-
-	goto error;
-
-ident:
-	ts = p;
-ident_l:
-	{
-		while (*p && (islabelchar[*p] >= (grammar->haslabels ? 1 : 2)))
-		{
-#if PARSERDEBUG >= 4
-			printf("ident: '%c'\n", *p);
-#endif
-
-			if (currop != NULL)
-			{
-				currop = currop[tolower(*p)].next;
-			}
-
-			p++;
-		}
-
-		if (currop != NULL)
-		{
-#if PARSERDEBUG >= 4
-			printf("ident: op\n");
-#endif
-			char* p2 = p;
-			while (*p2 && currop[tolower(*p)].next != NULL)
-			{
-#if PARSERDEBUG >= 4
-				printf("prefix ident operator char: '%c'\n", *p2);
-#endif
-				currop = currop[tolower(*p)].next;
-
-				p2++;
-			}
-
-			Operator* op = currop[0].curr;
-
-			if (op != NULL)
-			{
-#if PARSERDEBUG >= 3
-				printf("prefix ident operator: \"%s\"\n", op->name);
-#endif
-				fold(op, expectnexttoken);
-
-				p = p2;
-
-				if (op->rightarg)
-				{
-					goto expr;
-				}
-				else
-				{
-					goto op;
-				}
-			}
-		}
-
-		char* base = "";
-
-		if (*ts == ':')
-		{
-			base = lastgloballabel;
-		}
-
-		char* s = tok2stra(base, ts, p);
-
-#if PARSERDEBUG >= 3
-		printf("ident: \"%s\"\n", s);
-#endif
-
-
-		/*
-		if (sym->type == Symbol::OPCODE)
-		{
-#if PARSERDEBUG >= 3
-			printf("ident: goto expr\n");
-#endif
-			goto expr;
-		}
-		else
-		{
-#if PARSERDEBUG >= 3
-			printf("ident: goto op\n");
-#endif
-			goto op;
-		}
-		*/
-
-	}
-#endif
 
 string:
 	p++;
@@ -867,8 +796,17 @@ string_mid:
 		default  : p++; goto string_mid;
 	}
 
-	vstack->push_back(string_new(tok2str(ts, p)));
+	prevtoken = LITERAL;
+
+	vstack->push_back(new OperandString(tok2str(ts, p)));
 	p++;
+
+	if (expectnexttoken == OPERATOR)
+	{
+		push_null_operator(prevtoken);
+	}
+
+	expectnexttoken = OPERATOR;
 
 	goto expr;
 
@@ -1054,14 +992,16 @@ num_done:
 	printf("num: %d\n", n);
 #endif
 
+	prevtoken = LITERAL;
+
+	vstack->push_back(new OperandInt(n));
+
 	if (expectnexttoken == OPERATOR)
 	{
-		push_null_operator();
+		push_null_operator(prevtoken);
 	}
 
 	expectnexttoken = OPERATOR;
-
-	vstack->push_back(int_new(n));
 
 	goto expr;
 
@@ -1076,103 +1016,6 @@ here_or_hex:
 	vstack->push_back(ident_new("$"));
 	goto expr;
 
-#if 0==1
-op:
-	{
-		currop = grammar->operators;
-
-#if PARSERDEBUG >= 4
-		printf("operator char: '%c'\n", *p);
-#endif
-		switch (*p)
-		{
-			case 0   : goto end;
-			case ' ' :
-			case '\t': p++; goto op;
-			case '\n':
-			case '\r': fold(NULL, expectnexttoken); p++; goto newline;
-			case '\'': fold(NULL, expectnexttoken); p++; goto comment;
-			case '{' : eatblockcomment(&p); goto op;
-		}
-
-		ts = p;
-
-		Operator* lastop = NULL;
-		char* lastop_p = p+1;
-
-	operator_mid:
-
-		while (*p && currop[tolower(*p)].next != NULL)
-		{
-#if PARSERDEBUG >= 4
-			printf("operator char: '%c'\n", *p);
-#endif
-			if (currop[0].curr != NULL)
-			{
-#if PARSERDEBUG >= 3
-				printf("operator potential end: '%c'\n", *p);
-#endif
-				lastop = currop[0].curr;
-				lastop_p = p+1;
-			}
-
-			currop = currop[tolower(*p)].next;
-
-			p++;
-		}
-
-		Operator* op = currop[0].curr;
-
-		if (op == NULL)
-		{
-			p = lastop_p;
-			op = lastop;
-#if PARSERDEBUG >= 3
-			printf("operator: backtracking to '%c', op = \"%s\"\n", *p, op != NULL ? op->name : "NULL");
-#endif
-		}
-
-		if (op == NULL)
-		{
-			push_null_operator();
-	/*
-	// TODO: Running this commented out results in an infinte loop.  Commenting this
-	//  out and just leaving the "goto ident" seems to result in some, if not all,
-	//  undefined operators getting through and being registered as the null ""
-	//  operator.
-#if PARSERDEBUG >= 3
-			printf("ident->op backtrack\n");
-#endif
-			p = ts; // backtracking! Blech!
-	*/
-#if PARSERDEBUG >= 3
-			printf("ident->op\n");
-#endif
-			goto ident;
-		}
-
-
-#if PARSERDEBUG >= 3
-		printf("operator: \"%s\"\n", op->name);
-#endif
-
-		if (!op->leftarg)
-		{
-			push_null_operator();
-		}
-
-		fold(op, expectnexttoken);
-
-		if (op->rightarg)
-		{
-			goto expr;
-		}
-		else
-		{
-			goto op;
-		}
-	}
-#endif
 
 
 error:

@@ -15,7 +15,7 @@ Grammar* grammar;
 
 symtabentry* usersymbols;
 
-std::set<BlockDef*> blockdefs;
+std::vector<BlockDef*> blockdefs;
 std::set<Grammar*> blockgrammars;
 
 
@@ -166,6 +166,7 @@ Symbol* Symbol::chartree_clone(Symbol* sym)
 
 void Symbol::print() const
 {
+	printf("(");
 	switch (this->type)
 	{
 		case Symbol::LABEL:
@@ -191,6 +192,7 @@ void Symbol::print() const
 	}
 
 	printf("%s", this->name);
+	printf(")");
 }
 
 Block::Block(std::vector<Block*>* blocks, BlockDef* def, std::vector<Line*>** lines)
@@ -305,7 +307,7 @@ void Grammar::putblocknames()
 		printf("putblocknames: grammar %p\n", bodygrammar);
 #endif
 
-		for (std::set<BlockDef*>::iterator it = blockdefs.begin(); it != blockdefs.end(); ++it)
+		for (std::vector<BlockDef*>::iterator it = blockdefs.begin(); it != blockdefs.end(); ++it)
 		{
 			BlockDef* blockdef = *it;
 #if LIBDEBUG >= 2
@@ -327,18 +329,54 @@ BlockDef::BlockDef(char* s)
 
 	this->name = s;
 
-	blockdefs.insert(this);
+	blockdefs.push_back(this);
 	blockgrammars.insert(this->bodygrammar);
 }
 
 
-std::set<operand_type> defaulttypeset;
+bool TokenDesc::matches(const tokentype type) const
+{
+	if (type == OPERATOR)
+	{
+		printf("operator\n");
+		if (this->acceptsOperator)
+		{
+			return true;
+		}
+	}
+	else if (type == LITERAL)
+	{
+		printf("literal\n");
+		if (this->acceptsLiteral)
+		{
+			return true;
+		}
+	}
+	else if (type == SYMBOL)
+	{
+		printf("symbol\n");
+		if (this->acceptsSymbol)
+		{
+			return true;
+		}
+	}
+	else if (type == OPCODE)
+	{
+		printf("opcode\n");
+		if (this->acceptsOpcode)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
 
 // Operator
 
 Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg, int _push, Grammar* _localgrammar)
-                  : name(_name), precedence(_precedence), localgrammar(_localgrammar), push(_push),
-                    leftarg(_leftarg), rightarg(_rightarg), lefttypes(defaulttypeset), righttypes(defaulttypeset)
+                  : name(_name), leftprecedence(_precedence), rightprecedence(_precedence), localgrammar(_localgrammar), push(_push), tree(true),
+                    leftarg(_leftarg), rightarg(_rightarg)
 {
 	optabentry* optab = optabentry::get(grammar->operators, name);
 
@@ -355,8 +393,38 @@ Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg,
 
 	if (name[0] == 0)
 	{
-		lefttypes.insert(operand_type::OPCODE);
-		righttypes.insert(operand_type::OPCODE);
+		lefttypes.acceptsOpcode = true;
+		righttypes.acceptsOpcode = true;
+	}
+
+	if (!leftarg)
+	{
+		lefttypes.acceptsLiteral = false;
+		lefttypes.acceptsSymbol = false;
+
+		lefttypes.acceptsOperator = true;
+		lefttypes.acceptsOpcode = true;
+	}
+
+	if (!leftarg && rightarg >= 2) // if opening bracket
+	{
+		this->tree = false;
+	}
+
+	if (rightarg >= 2) // if opening bracket-ish
+	{
+		this->rightprecedence = 1e9; // lowest precedence - don't get folded
+	}
+
+
+	if (leftarg >= 2 && !rightarg) // if closing bracket
+	{
+		this->push = false;
+	}
+
+	if (leftarg >= 2) // if closing bracket-ish
+	{
+		this->leftprecedence = 2e9; // lowest precedence - fold everything beneath
 	}
 
 	opset->addop(this);
@@ -364,35 +432,44 @@ Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg,
 	set = opset;
 
 #if LIBDEBUG
-	printf("operator_new \"%s\" (%d, %d, %g)\n", opset->name, leftarg, rightarg, precedence);
+	printf("operator_new \"%s\" (%d, %d, %g, %g)\n", opset->name, leftarg, rightarg, leftprecedence, rightprecedence);
 #endif
 }
 
-bool Operator::preaccepts(const std::vector<Operand*>* vstack) const
+bool Operator::preaccepts(const std::vector<Operand*>* vstack, tokentype prevtokentype) const
 {
 	if (leftarg && rightarg) // infix binary
 	{
+		if (!lefttypes.matches(prevtokentype))
+		{
+			printf("reject: wrong left token\n");
+			return false;
+		}
+
 		if (vstack->empty())
 		{
+			printf("reject: vstack empty\n");
 			return false;
 		}
 
 		const Operand* lhs = vstack->back();
 
-		if (lhs->type == Operand::IDENT)
+		if (!lhs->matches(lefttypes))
 		{
-			const Symbol* sym = lhs->val.ident;
-
-			if (!lefttypes.count(sym->type))
-			{
-				return false;
-			}
+			printf("reject: doesn't match\n");
+			return false;
 		}
 
 		return true;
 	}
 	else if (leftarg && !rightarg) // postfix unary
 	{
+		if (!lefttypes.matches(prevtokentype))
+		{
+			printf("reject: wrong left token\n");
+			return false;
+		}
+
 		if (vstack->empty())
 		{
 			return false;
@@ -400,20 +477,21 @@ bool Operator::preaccepts(const std::vector<Operand*>* vstack) const
 
 		const Operand* lhs = vstack->back();
 
-		if (lhs->type == Operand::IDENT)
+		if (!lhs->matches(lefttypes))
 		{
-			const Symbol* sym = lhs->val.ident;
-
-			if (!lefttypes.count(sym->type))
-			{
-				return false;
-			}
+			return false;
 		}
 
 		return true;
 	}
 	else if (!leftarg && rightarg) // prefix unary
 	{
+		if (!lefttypes.matches(prevtokentype))
+		{
+			printf("reject: wrong left token\n");
+			return false;
+		}
+
 		return true;
 	}
 	else // nullary
@@ -426,48 +504,51 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 {
 	if (leftarg && rightarg) // infix binary
 	{
+		if (!lefttypes.matches(prevtokentype))
+		{
+			printf("reject: wrong left token\n");
+			return false;
+		}
+
 		if (vstack->size() >= 2 && (nextop == NULL || nextop->leftarg))
 		{
 			const Operand* rhs = vstack->end()[-1];
 			const Operand* lhs = vstack->end()[-2];
 
-			if (lhs->type == Operand::IDENT)
-			{
-				const Symbol* sym = lhs->val.ident;
+			printf("Operator::accepts \"%s\" binary: both operands: ", this->name);
+			lhs->print();
+			printf(", ");
+			rhs->print();
+			printf("\n");
 
-				if (!lefttypes.count(sym->type))
-				{
-					return false;
-				}
+			if (!lhs->matches(lefttypes))
+			{
+				return false;
 			}
 
-			if (rhs->type == Operand::IDENT)
+			if (!rhs->matches(righttypes))
 			{
-				const Symbol* sym = rhs->val.ident;
-
-				if (!righttypes.count(sym->type))
-				{
-					return false;
-				}
+				return false;
 			}
 		}
 		else if (vstack->size() == 1)
 		{
+			// Should never get here!
+
+			const Operand* lhs = vstack->end()[-1];
+
+			printf("Operator::accepts \"%s\" binary: only left operand", this->name);
+			lhs->print();
+			printf("\n");
+
 			if (nextop == NULL || nextop->leftarg)
 			{
 				return false;
 			}
 
-			const Operand* lhs = vstack->end()[-1];
-
-			if (lhs->type == Operand::IDENT)
+			if (!lhs->matches(lefttypes))
 			{
-				const Symbol* sym = lhs->val.ident;
-
-				if (!lefttypes.count(sym->type))
-				{
-					return false;
-				}
+				return false;
 			}
 		}
 
@@ -475,6 +556,12 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 	}
 	else if (leftarg && !rightarg) // postfix unary
 	{
+		if (!lefttypes.matches(prevtokentype))
+		{
+			printf("reject: wrong left token\n");
+			return false;
+		}
+
 		if (vstack->empty())
 		{
 			return false;
@@ -482,20 +569,21 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 
 		const Operand* lhs = vstack->back();
 
-		if (lhs->type == Operand::IDENT)
+		if (!lhs->matches(lefttypes))
 		{
-			const Symbol* sym = lhs->val.ident;
-
-			if (!lefttypes.count(sym->type))
-			{
-				return false;
-			}
+			return false;
 		}
 
 		return true;
 	}
 	else if (!leftarg && rightarg) // prefix unary
 	{
+		if (!lefttypes.matches(prevtokentype))
+		{
+			printf("reject: wrong left token\n");
+			return false;
+		}
+
 		if (vstack->empty())
 		{
 			if (nextop == NULL || nextop->leftarg)
@@ -506,14 +594,9 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 
 		const Operand* rhs = vstack->back();
 
-		if (rhs->type == Operand::IDENT)
+		if (!rhs->matches(righttypes))
 		{
-			const Symbol* sym = rhs->val.ident;
-
-			if (!righttypes.count(sym->type))
-			{
-				return false;
-			}
+			return false;
 		}
 
 		return true;
@@ -538,11 +621,13 @@ OperatorSet::~OperatorSet()
 {
 }
 
-OperatorSet* OperatorSet::clone_unmaster() const
+OperatorSet* OperatorSet::prepare_push(tokentype _prevtokentype) const
 {
 	OperatorSet* opset2 = new OperatorSet(*this);
 
 	opset2->mastercopy = false;
+
+	opset2->prevtokentype = _prevtokentype;
 
 	return opset2;
 }
@@ -561,7 +646,7 @@ Operator* OperatorSet::preselectop(const std::vector<Operand*>* vstack, tokentyp
 	{
 		Operator* candidate = *it;
 
-		if (candidate->preaccepts(vstack))
+		if (candidate->preaccepts(vstack, prevtokentype))
 		{
 			if (selectedop != NULL)
 			{
@@ -580,7 +665,7 @@ Operator* OperatorSet::preselectop(const std::vector<Operand*>* vstack, tokentyp
 
 	if (preselectedop == NULL)
 	{
-		printf("Error: no preselectop operator candidates remain for \"%s\" out of %ld\n", name, candidates.size());
+		printf("Error: preselectop: no operator candidates remain for \"%s\" out of %ld\n", name, candidates.size());
 		for (std::vector<Operator*>::const_iterator it = candidates.begin(); it != candidates.end(); ++it)
 		{
 			const Operator* candidate = *it;
@@ -604,7 +689,7 @@ Operator* OperatorSet::preselectop(const std::vector<Operand*>* vstack, tokentyp
 	return preselectedop;
 }
 
-Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Operator* nextop, tokentype prevtokentype)
+Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Operator* nextop)
 {
 	if (mastercopy)
 	{
@@ -622,7 +707,10 @@ Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Opera
 	{
 		Operator* candidate = *it;
 
-		if (candidate->accepts(vstack, nextop))
+		printf("OperatorSet::selectop candidate: \"%s\" (%d, %d)\n",
+			      candidate->name, candidate->leftarg, candidate->rightarg);
+
+		if (candidate->accepts(vstack, nextop, prevtokentype))
 		{
 			if (selectedop != NULL)
 			{
@@ -638,7 +726,7 @@ Operator* OperatorSet::selectop(const std::vector<Operand*>* vstack, const Opera
 
 	if (selectedop == NULL)
 	{
-		printf("Error: no selectop operator candidates remain for \"%s\" out of %ld\n", name, candidates.size());
+		printf("Error: selectop: no operator candidates remain for \"%s\" out of %ld\n", name, candidates.size());
 		for (std::vector<Operator*>::iterator it = candidates.begin(); it != candidates.end(); ++it)
 		{
 			Operator* candidate = *it;
@@ -716,31 +804,14 @@ Symbol* modifier_new(char* s, const char* bits)
 }
 
 
-Operand* int_new(plong x)
+Symbol* ident_new(char* s)
 {
-	Operand* operand = new Operand();
-
-	operand->type = Operand::INT;
-	operand->val.val = x;
-
-	return operand;
+	return Symbol::get(s);
 }
 
-Operand* ident_new(char* s)
+Symbol* ident_new_intern(char** p)
 {
-	Operand* operand = new Operand();
-
-	operand->type = Operand::IDENT;
-	operand->val.ident = Symbol::get(s);
-
-	return operand;
-}
-
-Operand* ident_new_intern(char** p)
-{
-	Operand* operand = ident_new(*p);
-
-	Symbol* sym = operand->val.ident;
+	Symbol* sym = ident_new(*p);
 
 	char* s = sym->name;
 
@@ -756,29 +827,13 @@ Operand* ident_new_intern(char** p)
 		free(p_old);
 	}
 
-	return operand;
+	return sym;
 }
 
-Operand* string_new(char* s)
+OperandBinop::OperandBinop(Operator* _op, Operand* lhs, Operand* rhs) : op(_op)
 {
-	Operand* operand = new Operand();
-
-	operand->type = Operand::STRING;
-	operand->val.str = s;
-
-	return operand;
-}
-
-Operand* binop_new(Operator* op, Operand* lhs, Operand* rhs)
-{
-	Operand* operand = new Operand();
-
-	operand->type = Operand::BINOP;
-	operand->val.binop.op = op;
-	operand->val.binop.operands[0] = lhs;
-	operand->val.binop.operands[1] = rhs;
-
-	return operand;
+	operands.push_back(lhs);
+	operands.push_back(rhs);
 }
 
 /*
@@ -851,13 +906,16 @@ int Operand::eval(Operand* this)
 
 void Operand::print_list() const
 {
-	if (this->type != Operand::BINOP || this->val.binop.op == NULL || this->val.binop.op->name[0] != 0)
+	print();
+}
+
+void OperandBinop::print_list() const
+{
+	if (op->name[0] != 0)
 	{
 		this->print();
 		return;
 	}
-
-	Operand* const* operands = this->val.binop.operands;
 
 	operands[0]->print_list();
 
@@ -866,88 +924,50 @@ void Operand::print_list() const
 	operands[1]->print_list();
 }
 
-void Operand::print() const
+void OperandBinop::print() const
 {
-	if (this == NULL)
+	if (op != NULL && op->name[0] == 0)
 	{
-		printf("NULL");
-		return;
+		printf("[");
+		this->print_list();
+		printf("]");
 	}
-
-	switch (this->type)
+	else
 	{
-		case Operand::INT:
+		printf("(");
+
+		if (op != NULL)
 		{
-			printf("%u", this->val.val);
-
-			break;
+			printf("'%s'", op->name);
 		}
-		case Operand::IDENT:
+		else
 		{
-			printf("(");
-			this->val.ident->print();
-			printf(")");
-
-			break;
+			printf("NULL");
 		}
-		case Operand::BINOP:
+
+		if (operands[0] != NULL)
 		{
-			Operator* op = this->val.binop.op;
-			if (op != NULL && op->name[0] == 0)
-			{
-				printf("[");
-				this->print_list();
-				printf("]");
-			}
-			else
-			{
-				printf("(");
-
-				if (op != NULL)
-				{
-					printf("'%s'", op->name);
-				}
-				else
-				{
-					printf("NULL");
-				}
-
-				if (this->val.binop.operands[0] != NULL)
-				{
-					printf(" ");
-					this->val.binop.operands[0]->print();
-				}
-				if (this->val.binop.operands[1] != NULL)
-				{
-					printf(" ");
-					this->val.binop.operands[1]->print();
-				}
-
-				printf(")");
-			}
-
-			break;
+			printf(" ");
+			operands[0]->print();
 		}
-		case Operand::PTR:
+		if (operands[1] != NULL)
 		{
-			//printf("[%s]", this->val.line->name);
-			printf("[ptr]");
-
-			break;
+			printf(" ");
+			operands[1]->print();
 		}
-		case Operand::STRING:
-		{
-			printf("\"%s\"", this->val.str);
 
-			break;
-		}
-		default:
-		{
-			printf("(? type=%d ?)", this->type);
-
-			break;
-		}
+		printf(")");
 	}
+}
+
+void OperandInt::print() const
+{
+	printf("%u", val);
+}
+
+void OperandString::print() const
+{
+	printf("\"%s\"", str);
 }
 
 /*
@@ -992,8 +1012,6 @@ void parserlib_init(void)
 	grammar = new Grammar();
 
 	usersymbols = symtabentry::create();
-
-	defaulttypeset.insert(operand_type::VALUE);
 }
 
 

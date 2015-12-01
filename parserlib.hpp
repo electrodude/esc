@@ -2,7 +2,6 @@
 
 #include <string>
 #include <vector>
-#include <set>
 
 #include "parallax_types.hpp"
 
@@ -90,48 +89,6 @@ public:
 	char* name;
 };
 
-// symbol
-
-class Operand;
-class Opcode;
-
-enum tokentype
-{
-	OPERATOR,
-	SYMBOL,
-};
-
-class Symbol
-{
-public:
-	enum symboltype
-	{
-		UNKNOWN,
-		LABEL,
-		OPCODE,
-		BLOCK,
-	};
-
-	Symbol(char* _name) : type(Symbol::UNKNOWN), name(_name), defined(0) {}
-	union
-	{
-		Operand* val;
-		Opcode* op;
-		BlockDef* blockdef;
-	} data;
-	char* name;
-	symboltype type;
-	int defined;
-
-	static Symbol* get(char* p);
-	static Symbol* get(symtabentry* symtab, char* p);
-	static Symbol* define(Grammar* grammar, char* s, symboltype type);
-	static Symbol* define(char* s, symboltype type);
-
-	static Symbol* chartree_clone(Symbol* sym);
-
-	void print() const;
-};
 
 // instruction
 
@@ -147,6 +104,30 @@ class instruction
 */
 
 // operator
+enum tokentype
+{
+	OPERATOR,
+	LITERAL,
+	SYMBOL,
+	OPCODE,
+};
+
+class Operand;
+
+class TokenDesc
+{
+public:
+	TokenDesc() : acceptsOperator(false), acceptsSymbol(true), acceptsOpcode(false), acceptsLiteral(true) {}
+
+	virtual bool matches(const tokentype type) const;
+
+	bool acceptsOperator;
+	bool acceptsSymbol;
+
+	bool acceptsOpcode;
+	bool acceptsLiteral;
+};
+
 class Operator
 {
 public:
@@ -163,17 +144,20 @@ public:
 
 	char* name;
 
-	double precedence;
+	double leftprecedence;
+	double rightprecedence;
 
 	int leftarg;
 	int rightarg;
 
-	std::set<operand_type> lefttypes;
-	std::set<operand_type> righttypes;
+	TokenDesc lefttypes;
+	TokenDesc righttypes;
 
 	Grammar* localgrammar;
 
-	int push;
+	bool push;
+
+	bool tree;
 
 	OperatorSet* set;
 };
@@ -185,7 +169,7 @@ public:
 	OperatorSet(const OperatorSet& original);
 	~OperatorSet();
 
-	OperatorSet* clone_unmaster() const;
+	OperatorSet* prepare_push(tokentype _prevtokentype) const;
 
 	void addop(Operator* op);
 
@@ -197,7 +181,7 @@ public:
 	// selectop
 	// returns exact operator to use based on all operands
 	// expects all operands to be on stack
-	Operator* selectop(const std::vector<Operand*>* vstack, const Operator* nextop, tokentype prevtokentype);
+	Operator* selectop(const std::vector<Operand*>* vstack, const Operator* nextop);
 
 	static OperatorSet* chartree_clone(OperatorSet* opset);
 
@@ -209,6 +193,8 @@ private:
 	Operator* selectedop;
 
 	bool mastercopy;
+
+	tokentype prevtokentype;
 };
 
 
@@ -248,34 +234,98 @@ public:
 
 
 // expression
-enum operand_type
-{
-	VALUE,
-	OPCODE,
-	OPERATOR,
-};
+class OperandBinop;
 
 class Operand
 {
 public:
-	enum {INT, IDENT, PTR, STRING, BINOP} type;
-	union
-	{
-		plong val;
-		Symbol* ident;
-		char* str;
-		struct
-		{
-			Operand* operands[2];
-			Operator* op;
-		} binop;
-	} val;
 
-	void print() const;
-private:
-	void print_list() const;
+	//virtual ??? eval();
+
+	virtual bool matches(const TokenDesc& spec) const { return true; }
+
+	virtual void print() const = 0;
+protected:
+	virtual void print_list() const;
+
+	friend OperandBinop;
 };
 
+class OperandInt : public Operand
+{
+public:
+	OperandInt(plong _val) : val(_val) {}
+
+	plong val;
+
+	virtual bool matches(const TokenDesc& spec) const { return spec.acceptsLiteral; }
+
+	virtual void print() const;
+};
+
+class OperandString : public Operand
+{
+public:
+	OperandString(char* _str) : str(_str) {}
+
+	char* str;
+
+	virtual bool matches(const TokenDesc& spec) const { return spec.acceptsLiteral; }
+
+	virtual void print() const;
+};
+
+class OperandBinop : public Operand
+{
+public:
+	OperandBinop(Operator* _op, Operand* lhs, Operand* rhs);
+
+	std::vector<Operand*> operands;
+	Operator* op;
+
+	virtual void print() const;
+protected:
+	virtual void print_list() const;
+};
+
+// symbol
+
+class Opcode;
+
+class Symbol : public Operand
+{
+public:
+	enum symboltype
+	{
+		UNKNOWN,
+		LABEL,
+		OPCODE,
+		BLOCK,
+	};
+
+	Symbol(char* _name) : type(Symbol::UNKNOWN), name(_name), defined(0) {}
+	union
+	{
+		Opcode* op;
+		BlockDef* blockdef;
+	} data;
+	char* name;
+	symboltype type;
+	int defined;
+
+	static Symbol* get(char* p);
+	static Symbol* get(symtabentry* symtab, char* p);
+	static Symbol* define(Grammar* grammar, char* s, symboltype type);
+	static Symbol* define(char* s, symboltype type);
+
+	static Symbol* chartree_clone(Symbol* sym);
+
+
+	virtual bool matches(const TokenDesc& spec) const { return type != Symbol::OPCODE || spec.acceptsOpcode; }
+
+
+	void print() const;
+};
 
 symtabentry* symtabentry_new(void);
 symtabentry* symtabentry_get(symtabentry* base, char* p);
@@ -287,12 +337,9 @@ Symbol* modifier_new(char* s, const char* bits);
 
 
 
-Operand* int_new(plong x);
 Operand* ref_new(Line* l);
-Operand* ident_new(char* s);
-Operand* ident_new_intern(char** p);
-Operand* string_new(char* s);
-Operand* binop_new(Operator* op, Operand* lhs, Operand* rhs);
+Symbol* ident_new(char* s);
+Symbol* ident_new_intern(char** p);
 
 void parserlib_init(void);
 

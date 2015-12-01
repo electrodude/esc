@@ -10,8 +10,11 @@ Grammar* register_spin(void)
 	Grammar* grammar_global = grammar;
 
 	// . and #
-	new Operator("." ,  -11,  1,1);
+	new Operator("." ,  -200,  1,1);
 	Operator* op_constant = new Operator("#" ,  -11,  1,1);
+
+	op_constant->lefttypes.acceptsLiteral = false;
+	op_constant->righttypes.acceptsLiteral = false;
 
 	new Operator("~" ,   0,  0,1);
 	new Operator("~~",   0,  0,1);
@@ -64,20 +67,20 @@ Grammar* register_spin(void)
 
 	new Operator("or",   11, 1,1);
 
-	Operator* op_funccall = new Operator("(",   -10, 1,2); // function call
-	new Operator("(",    10, 0,2);
-	new Operator(")",    10, 2,0, 0);
+	Operator* op_funccall = new Operator("(",   -100, 1,2); // function call
+	new Operator("(", -100, 0,2);
+	new Operator(")",  100, 2,0, 0);
 
-	Operator* op_arrayidx = new Operator("[",  -10, 1,3); // array index
-	//new Operator("[",   10, 0,3); // unused [val] notation
-	new Operator("]",   10, 3,0, 0);
+	Operator* op_arrayidx = new Operator("[",  -100, 1,3); // array index
+	//new Operator("[", -100, 0,3); // unused [val] notation
+	new Operator("]", 100, 3,0, 0);
 
 	Grammar::push(new Grammar());
 		BlockDef* objblock = new BlockDef("obj");
 
 		new Operator(":",    16, 1,1);
 
-		new Operator("[",  -10, 1,3, grammar_global); // instance count
+		new Operator("[",  -100, 1,3, grammar_global); // instance count
 
 	Grammar::pop();
 
@@ -196,15 +199,15 @@ Grammar* register_spin(void)
 
 	Grammar::push(new Grammar());
 
-		//new Operator("(",   -10, 1,2); // function args
-		new Operator("(",    10, 0,2);
-		new Operator(")",    10, 2,0);
+		//new Operator("(",   -100, 1,2); // function args
+		new Operator("(", -100, 1,2);
+		new Operator(")",  100, 2,0);
 
 		// TODO: make the new way of doing this work
-		new Operator("[",  -10, 1,3, pubblock->bodygrammar); // array size
+		new Operator("[",  -100, 1,3, pubblock->bodygrammar); // array size
 		new Operator(",",    0, 1,1);
-		new Operator(":",    1, 0,1);
-		new Operator("|",    1, 0,1);
+		new Operator(":",    1, 1,1);
+		new Operator("|",    1, 1,1);
 
 		new Operator("",     15, 1,1);
 
@@ -389,12 +392,12 @@ Grammar* register_spin(void)
 
 		modifier_new("if_always",    "xxxxxx_xxxx_1111_xxxxxxxxx_xxxxxxxxx");
 
-		modifier_new("wz",           "xxxxxx_1xxx_xxxx_xxxxxxxxx_xxxxxxxxx");
+		//modifier_new("wz",           "xxxxxx_1xxx_xxxx_xxxxxxxxx_xxxxxxxxx");
 		//modifier_new("nz",           "xxxxxx_0xxx_xxxx_xxxxxxxxx_xxxxxxxxx");
-		modifier_new("wc",           "xxxxxx_x1xx_xxxx_xxxxxxxxx_xxxxxxxxx");
+		//modifier_new("wc",           "xxxxxx_x1xx_xxxx_xxxxxxxxx_xxxxxxxxx");
 		//modifier_new("nc",           "xxxxxx_x0xx_xxxx_xxxxxxxxx_xxxxxxxxx");
-		modifier_new("wr",           "xxxxxx_xx1x_xxxx_xxxxxxxxx_xxxxxxxxx");
-		modifier_new("nr",           "xxxxxx_xx0x_xxxx_xxxxxxxxx_xxxxxxxxx");
+		//modifier_new("wr",           "xxxxxx_xx1x_xxxx_xxxxxxxxx_xxxxxxxxx");
+		//modifier_new("nr",           "xxxxxx_xx0x_xxxx_xxxxxxxxx_xxxxxxxxx");
 
 	Grammar::pop();
 
