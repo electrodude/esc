@@ -67,13 +67,13 @@ Grammar* register_spin(void)
 
 	new Operator("or",   11, 1,1);
 
-	Operator* op_funccall = new Operator("(",   -100, 1,2); // function call
+	Operator* op_funccall = new Operator("(", -100, 1,2); // function call
 	new Operator("(", -100, 0,2);
-	new Operator(")",  100, 2,0, 0);
+	new Operator(")",  100, 2,0);
 
-	Operator* op_arrayidx = new Operator("[",  -100, 1,3); // array index
+	Operator* op_arrayidx = new Operator("[", -100, 1,3); // array index
 	//new Operator("[", -100, 0,3); // unused [val] notation
-	new Operator("]", 100, 3,0, 0);
+	new Operator("]", 100, 3,0);
 
 	Grammar::push(new Grammar());
 		BlockDef* objblock = new BlockDef("obj");
@@ -95,23 +95,21 @@ Grammar* register_spin(void)
 
 	Grammar::pop();
 
-	Grammar::push();
+	Grammar::push(new Grammar());
 		BlockDef* varblock = new BlockDef("var");
 
-		opcode_new("byte", "");
-		opcode_new("word", "");
-		opcode_new("long", "");
+		new Operator("long", 14.5, 0,1);
+		new Operator("word", 14.5, 0,1);
+		new Operator("byte", 14.5, 0,1);
 
 		new Operator(",",    13, 1,1);
-		new Operator("",     15, 1,1);
 
-		/*
-		label_new("byte");
-		label_new("word");
-		label_new("long");
-		*/
+		Operator* op_var_array = new Operator("[", -100, 1,3); // array size
+		new Operator("]",  100, 3,0);
 
 	Grammar::pop();
+
+	op_var_array->localgrammar = grammar;
 
 	Grammar::push();
 		BlockDef* pubblock = new BlockDef("pub");
@@ -132,8 +130,16 @@ Grammar* register_spin(void)
 		new Operator("step",      20,  1,1);
 		new Operator("until",     20,  0,1);
 		new Operator("while",     20,  0,1);
+		new Operator("next",      20,  0,0);
+		new Operator("quit",      20,  0,0);
 
 		new Operator("case",      20,  0,1);
+
+		new Operator("return",    20,  0,1);
+		new Operator("return",    20,  0,0);
+
+		new Operator("abort",     20,  0,1);
+		new Operator("abort",     20,  0,0);
 
 
 
@@ -187,7 +193,7 @@ Grammar* register_spin(void)
 
 		new Operator("..",   12.5,1,1);
 		new Operator(",",    13, 1,1);
-		new Operator("",     15, 1,1);
+		new Operator("",     21, 1,1);
 
 		Grammar::push();
 			new Operator(":",    14, 1,1);
@@ -195,19 +201,19 @@ Grammar* register_spin(void)
 			op_funccall->localgrammar = grammar;
 		Grammar::pop();
 
-		op_arrayidx->localgrammar = grammar;
+		new Operator(":",    14, 1,0);
 
-		new Operator(":",    14, 1,0); // TODO: don't error if this is before the above grammar block
+		op_arrayidx->localgrammar = grammar;
 	Grammar::pop();
 
 	Grammar::push(new Grammar());
 
-		//new Operator("(",   -100, 1,2); // function args
-		new Operator("(", -100, 1,2);
+		new Operator("(", -100, 1,2); // function args
 		new Operator(")",  100, 2,0);
 
-		// TODO: make the new way of doing this work
-		new Operator("[",  -100, 1,3, pubblock->bodygrammar); // array size
+		new Operator("[", -100, 1,3); // array size
+		new Operator("]",  100, 3,0);
+
 		new Operator(",",    0, 1,1);
 		new Operator(":",    1, 1,1);
 		new Operator("|",    1, 1,1);
@@ -228,9 +234,9 @@ Grammar* register_spin(void)
 		new Operator(",",    13, 1,1);
 		new Operator("",     15, 1,1);
 
-		new Operator("long", 14.5, 0, 1);
-		new Operator("word", 14.5, 0, 1);
-		new Operator("byte", 14.5, 0, 1);
+		new Operator("long", 14.5, 0,1);
+		new Operator("word", 14.5, 0,1);
+		new Operator("byte", 14.5, 0,1);
 
 		opcode_new("org", "");
 		opcode_new("res", "");

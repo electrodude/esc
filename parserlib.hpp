@@ -325,10 +325,10 @@ public:
 	static Symbol* define(Grammar* grammar, char* s, symboltype type);
 	static Symbol* define(char* s, symboltype type);
 
+	virtual bool matches(const TokenDesc& spec) const;
+
+
 	static Symbol* chartree_clone(Symbol* sym);
-
-
-	virtual bool matches(const TokenDesc& spec) const { return type != Symbol::OPCODE || spec.acceptsOpcode; }
 
 
 	void print() const;

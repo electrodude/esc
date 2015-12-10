@@ -81,12 +81,19 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 	if (nextopset != NULL)
 	{
 		nextop = nextopset->preselectop(vstack, prevtokentype);
+
+		if (nextop == NULL)
+		{
+			return NULL;
+		}
 	}
 
 #if PARSERDEBUG >= 3
 	if (nextop != NULL)
 	{
-		printf("fold: nextop = \"%s\" (%d)\n", nextop->name, nextop->leftarg);
+		printf("fold: nextop = ");
+		nextop->print();
+		printf("\n");
 	}
 	else
 	{
@@ -97,7 +104,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 	if (nextop != NULL && nextop->localgrammar != NULL)
 	{
 #if PARSERDEBUG >= 2
-		printf("op grammar push: \"%s\"\n", nextop->name);
+		printf("op grammar push\n");
 #endif
 		Grammar::push(nextop->localgrammar);
 	}
@@ -134,7 +141,9 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 		ostack->pop_back();
 
 #if PARSERDEBUG >= 3
-		printf("fold: op \"%s\" (%d, %d)\n", topop->name, topop->leftarg, topop->rightarg);
+		printf("fold: ");
+		topop->print();
+		printf("\n");
 #endif
 		/*
 		if (topop != NULL && nextop != NULL && topop->leftarg == 0 && topop->rightarg >= 2 && nextop->leftarg >= 2 && nextop->rightarg == 0)
@@ -151,8 +160,10 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 		{
 			if (vstack->empty())
 			{
-				printf("Missing rhs of \"%s\"!\n", topop->name);
-#if PARSERDEBUG
+				printf("Missing rhs of ");
+				topop->print();
+				printf("\n");
+#if PARSERDEBUG >= 2
 				printstacks();
 #endif
 				throw "missing rhs";
@@ -162,7 +173,10 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 
 			if (rhs == NULL)
 			{
-				printf("Error: rhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
+				printf("Error: rhs of ");
+				topop->print();
+				printf(" == NULL!\n");
+
 				throw "rhs == NULL";
 			}
 		}
@@ -173,8 +187,10 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 		{
 			if (vstack->empty())
 			{
-				printf("Missing lhs of \"%s\"!\n", topop->name);
-#if PARSERDEBUG
+				printf("Missing lhs of ");
+				topop->print();
+				printf("\n");
+#if PARSERDEBUG >= 2
 				printstacks();
 #endif
 				throw "missing lhs";
@@ -184,7 +200,10 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 
 			if (lhs == NULL)
 			{
-				printf("Error: lhs of '%s' (%d, %d) == NULL!\n", topop->name, topop->leftarg, topop->rightarg);
+				printf("Error: lhs of ");
+				topop->print();
+				printf(" == NULL!\n");
+
 				throw "lhs == NULL";
 			}
 		}
@@ -192,7 +211,9 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 		if (topop->localgrammar != NULL)
 		{
 #if PARSERDEBUG >= 2
-			printf("op grammar pop: \"%s\"\n", topop->name);
+			printf("op grammar pop: ");
+			topop->print();
+			printf("\n");
 #endif
 			Grammar* oldgrammar = Grammar::pop();
 
@@ -223,7 +244,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 			goto folded;
 		}
 
-#if PARSERDEBUG
+#if PARSERDEBUG >= 2
 		printstacks();
 #endif
 	}
@@ -265,12 +286,14 @@ folded:
 		printf("Error: unmatched right bracket! nextop = ");
 		if (nextop != NULL)
 		{
-			printf("\"%s\" (%d, %d)", nextop->name, nextop->leftarg, nextop->rightarg);
+			nextop->print();
 		}
 		else
 		{
 			printf("NULL");
 		}
+		printf("\n");
+
 		exit(1);
 	}
 
@@ -283,7 +306,7 @@ folddone:
 		ostack->push_back(nextopset->prepare_push(prevtokentype));
 	}
 
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 2
 	printstacks();
 #endif
 
@@ -292,7 +315,7 @@ folddone:
 
 static void push_null_operator(tokentype prevtoken)
 {
-#if PARSERDEBUG >= 4
+#if PARSERDEBUG >= 3
 	printf("push_null_operator\n");
 #endif
 	fold(grammar->operators[0].curr, prevtoken);
@@ -654,20 +677,52 @@ expr:
 
 			if (prevtoken == OPCODE)
 			{
+#if PARSERDEBUG >= 3
+				printf("prevtoken == OPCODE\n");
+#endif
+
 				push_null_operator(prevtoken);
 			}
 
 			Operator* nextop = fold(lastop, prevtoken);
 
-			expectnexttoken = SYMBOL;
-
-			if (nextop->leftarg && !nextop->rightarg)
+			if (nextop != NULL)
 			{
-				prevtoken = SYMBOL;
+				if (nextop->leftarg && !nextop->rightarg)
+				{
+					expectnexttoken = OPERATOR;
+					prevtoken = SYMBOL;
+				}
+				else
+				{
+					expectnexttoken = SYMBOL;
+					prevtoken = OPERATOR;
+				}
 			}
 			else
 			{
-				prevtoken = OPERATOR;
+				push_null_operator(SYMBOL);
+#if PARSERDEBUG >= 3
+				printf("op: \"%s\"\n", lastop->name);
+#endif
+
+				Operator* nextop = fold(lastop, OPERATOR);
+
+				if (nextop == NULL)
+				{
+					throw "no candidates";
+				}
+
+				if (nextop->leftarg && !nextop->rightarg)
+				{
+					expectnexttoken = OPERATOR;
+					prevtoken = SYMBOL;
+				}
+				else
+				{
+					expectnexttoken = SYMBOL;
+					prevtoken = OPERATOR;
+				}
 			}
 
 			free(s);
@@ -741,15 +796,6 @@ expr:
 				}
 			}
 
-#if 0
-			if (expectnexttoken == OPERATOR && sym->type == Symbol::OPCODE)
-			{
-				push_null_operator(OPCODE);
-
-				expectnexttoken = SYMBOL;
-			}
-#endif
-
 			if (expectnexttoken == OPERATOR)
 			{
 #if PARSERDEBUG >= 3
@@ -806,30 +852,37 @@ string:
 	ts = p;
 
 string_mid:
-#if PARSERDEBUG >= 3
-	printf("string: '%c'\n", *p);
+	{
+#if PARSERDEBUG >= 4
+		printf("string: '%c'\n", *p);
 #endif
 
-	switch (*p)
-	{
-		case 0   : goto error;
-		case '"' : break;
-		default  : p++; goto string_mid;
+		switch (*p)
+		{
+			case 0   : goto error;
+			case '"' : break;
+			default  : p++; goto string_mid;
+		}
+
+		char* s = tok2str(ts, p);
+#if PARSERDEBUG >= 3
+		printf("string: \"%s\"\n", s);
+#endif
+
+		prevtoken = LITERAL;
+
+		vstack->push_back(new OperandString(s));
+		p++;
+
+		if (expectnexttoken == OPERATOR)
+		{
+			push_null_operator(prevtoken);
+		}
+
+		expectnexttoken = OPERATOR;
+
+		goto expr;
 	}
-
-	prevtoken = LITERAL;
-
-	vstack->push_back(new OperandString(tok2str(ts, p)));
-	p++;
-
-	if (expectnexttoken == OPERATOR)
-	{
-		push_null_operator(prevtoken);
-	}
-
-	expectnexttoken = OPERATOR;
-
-	goto expr;
 
 
 
@@ -1047,7 +1100,7 @@ error:
 	printstacks();
 #endif
 
-	return blocks;
+	return NULL;
 
 #if 0
 	while (*p != 0 && *p != '\n' && *p != '\r') p++;
