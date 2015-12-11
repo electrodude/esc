@@ -1,4 +1,4 @@
-#include "parser.hpp"
+#include "lexer.hpp"
 
 int graphviz_cgen = 0;      // the current graphviz generation number
 int lastid = 0;

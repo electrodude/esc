@@ -17,7 +17,8 @@ add_executable(esc
 
 add_executable(parsertest
     parsertest.cpp
-    parser)
+    parser
+    lexer)
 
 add_library(module STATIC
     module

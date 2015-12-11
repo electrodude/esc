@@ -2,7 +2,7 @@
 #include <fstream>
 #include <streambuf>
 
-#include "parser.hpp"
+#include "lexer.hpp"
 
 class TokenLabel : public Token
 {
