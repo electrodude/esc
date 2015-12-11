@@ -9,7 +9,7 @@
 
 #include "compiler.hpp"
 
-#define COMPILER_DEBUG 2
+#define COMPILER_DEBUG 0
 
 #define COMPILER_DUMP_AST 1
 
@@ -29,15 +29,21 @@ void compile_file(char* path)
 	{
 		n_read = fread(&s[sused], 1, slen - sused, f);
 
-		//printf("read %d, used %d, total %d\n", n_read, sused, slen);
 
 		sused += n_read;
 
+#if COMPILER_DEBUG >= 3
+		printf("read %d, used %d, total %d\n", n_read, sused, slen);
+#endif
+
 		// If changed in the future, make sure there's still room for
 		//  the extra newline and null terminator at the end.
-		if (slen < sused - 256)
+		if (sused > slen - 256)
 		{
 			s = (char*)realloc(s, slen *= 2);
+#if COMPILER_DEBUG >= 3
+			printf("realloc to %d\n", slen);
+#endif
 		}
 	} while (n_read);
 
