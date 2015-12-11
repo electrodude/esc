@@ -27,7 +27,7 @@ void compile_file(char* path)
 	size_t n_read = 0;
 	do
 	{
-		n_read = fread(&s[sused], slen - sused, 1, f);
+		n_read = fread(&s[sused], 1, slen - sused, f);
 
 		//printf("read %d, used %d, total %d\n", n_read, sused, slen);
 
@@ -38,7 +38,18 @@ void compile_file(char* path)
 			s = (char*)realloc(s, slen *= 2);
 		}
 	} while (n_read);
+
+	if (!feof(f))
+	{
+		printf("ferror: %d\n", ferror(f));
+		exit(1);
+	}
+
 	fclose(f);
+
+#if COMPILER_DEBUG >= 3
+	printf("file length: %ld\n", sused);
+#endif
 
 	// parser
 #if COMPILER_DEBUG >= 2
