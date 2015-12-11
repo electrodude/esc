@@ -374,7 +374,8 @@ static void eatblockcomment(char** pp)
 				break;
 			}
 			case '}' : --level; break;
-			case '\n': lineno++;
+			case '\r': if (p[1] == '\n') p++;
+			case '\n': lineno++; break;
 		}
 	}
 
@@ -516,8 +517,8 @@ line:
 		case 0   : goto end;
 		case '\'': p++; goto comment;
 		case '{' : eatblockcomment(&p); goto line;
-		case '\n':
-		case '\r': indent = 0; lineno++; linestart=p+1; p++;
+		case '\r': if (p[1] == '\n') p++;
+		case '\n': indent = 0; lineno++; linestart=p+1; p++;
 #if PARSERDEBUG >= 3
 		           printf("bodygrammar\n");
 #endif
@@ -537,8 +538,8 @@ comment:
 	switch (*p)
 	{
 		case 0   : goto end;
-		case '\n':
-		case '\r': p++; goto newline;
+		case '\r': if (p[1] == '\n') p++;
+		case '\n': p++; goto newline;
 	}
 
 	p++; goto comment;
@@ -583,8 +584,8 @@ expr:
 		case '%' : p++; goto binnum;
 		case '$' : p++; goto here_or_hex;
 		case '\'': goto comment;
-		case '\n':
-		case '\r': p++; goto newline;
+		case '\r': if (p[1] == '\n') p++;
+		case '\n': p++; goto newline;
 	}
 
 	if (*p >= '0' && *p <= '9') goto decnum;
@@ -639,12 +640,6 @@ expr:
 		}
 		while (*p && (islabel || currop != NULL));
 
-		if (*p == 0)
-		{
-			printf("Unexpected end of file!\n");
-
-			goto error;
-		}
 
 		char* s = NULL;
 		Symbol* sym = NULL;
