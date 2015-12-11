@@ -80,7 +80,10 @@ Grammar* register_spin(void)
 
 		new Operator(":",    16, 1,1);
 
-		new Operator("[",  -100, 1,3, grammar_global); // instance count
+		Operator* op_objarray = new Operator("[",  -100, 1,3); // instance count
+		new Operator("]", 100, 3,0);
+
+		op_objarray->localgrammar = grammar_global;
 
 	Grammar::pop();
 
@@ -107,9 +110,9 @@ Grammar* register_spin(void)
 		Operator* op_var_array = new Operator("[", -100, 1,3); // array size
 		new Operator("]",  100, 3,0);
 
-	Grammar::pop();
+		op_var_array->localgrammar = grammar_global;
 
-	op_var_array->localgrammar = grammar;
+	Grammar::pop();
 
 	Grammar::push();
 		BlockDef* pubblock = new BlockDef("pub");
@@ -211,8 +214,10 @@ Grammar* register_spin(void)
 		new Operator("(", -100, 1,2); // function args
 		new Operator(")",  100, 2,0);
 
-		new Operator("[", -100, 1,3); // array size
+		Operator* op_pubheader_array = new Operator("[", -100, 1,3); // array size
 		new Operator("]",  100, 3,0);
+
+		op_pubheader_array->localgrammar = grammar_global;
 
 		new Operator(",",    0, 1,1);
 		new Operator(":",    1, 1,1);

@@ -134,10 +134,12 @@ class Operator
 {
 public:
 	Operator(char* name, double precedence, int leftarg, int rightarg, int push = 1, Grammar* localgrammar = NULL);
+	/* BAD: I need to read up on the right way to do this...
 	Operator(char* name, double precedence, int leftarg, int rightarg, Grammar* localgrammar)
 	{
 		Operator(name, precedence, leftarg, rightarg, 1, localgrammar);
 	}
+	*/
 
 	static Operator* get(optabentry* optab, char* name);
 
