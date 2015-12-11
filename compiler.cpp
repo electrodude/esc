@@ -33,6 +33,8 @@ void compile_file(char* path)
 
 		sused += n_read;
 
+		// If changed in the future, make sure there's still room for
+		//  the extra newline and null terminator at the end.
 		if (slen < sused - 256)
 		{
 			s = (char*)realloc(s, slen *= 2);
@@ -50,6 +52,10 @@ void compile_file(char* path)
 #if COMPILER_DEBUG >= 3
 	printf("file length: %ld\n", sused);
 #endif
+
+	s[sused-1] = '\n'; // append final newline (arguably a hack)
+	s[sused] = '\0';   // there is room for this extra null terminator, see
+	                   //  fread loop
 
 	// parser
 #if COMPILER_DEBUG >= 2
