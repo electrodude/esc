@@ -39,6 +39,84 @@ private:
 	chartree() : next(NULL) {}
 };
 
+template<class T> chartree<T>* chartree<T>::create(void)
+{
+	//return calloc(256, sizeof(symtabentry));
+	return new chartree<T>[256]();
+}
+
+template<class T> chartree<T>* chartree<T>::clone(chartree<T>* optab)
+{
+	if (optab == NULL)
+	{
+		return NULL;
+	}
+
+	chartree<T>* optab2 = chartree<T>::create();
+
+	optab2[0].curr = T::chartree_clone(optab[0].curr);
+
+	for (int i=1; i < 256; i++)
+	{
+		optab2[i].next = chartree<T>::clone(optab[i].next);
+	}
+
+	return optab2;
+}
+
+template<class T> T* chartree<T>::get_if_exist(chartree<T>* base, char* p)
+{
+	chartree<T>* symtab = base;
+
+	while (*p != 0)
+	{
+#if LIBDEBUG >= 2
+		putchar(*p);
+#endif
+		unsigned char c = tolower(*p);
+
+		symtab = symtab[c].next;
+
+		if (symtab == NULL)
+		{
+			return NULL;
+		}
+
+		p++;
+	}
+#if LIBDEBUG >= 2
+	putchar('\n');
+#endif
+
+	return symtab[0].curr;
+}
+
+template<class T> chartree<T>* chartree<T>::get(chartree<T>* base, char* p)
+{
+	chartree<T>* symtab = base;
+
+	while (*p != 0)
+	{
+#if LIBDEBUG >= 2
+		putchar(*p);
+#endif
+		unsigned char c = tolower(*p);
+
+		chartree<T>* symtab2 = symtab[c].next;
+		if (symtab2 == NULL)
+		{
+			symtab2 = symtab[c].next = chartree<T>::create();
+		}
+		symtab = symtab2;
+		p++;
+	}
+#if LIBDEBUG >= 2
+	putchar('\n');
+#endif
+
+	return symtab;
+}
+
 class Symbol;
 typedef chartree<Symbol> symtabentry;
 
@@ -49,7 +127,8 @@ class Grammar
 {
 public:
 	Grammar();
-	Grammar(symtabentry* symbols, optabentry* operators = NULL, int haslabels = 0, int hasindent = 0);
+	Grammar(Grammar* oldgrammar);
+	Grammar(symtabentry* symbols, optabentry* operators = NULL, int haslabels = 0, int hasindent = 1);
 	static void push();
 	static void push(Grammar* newgrammar);
 	static Grammar* pop(void);
@@ -68,16 +147,19 @@ public:
 class BlockDef
 {
 public:
-	BlockDef(char* s);
+	BlockDef(char* s, Grammar* headgrammar = NULL);
 
 	Grammar* headgrammar;
 	Grammar* bodygrammar;
+
+	bool hasdesc;
 
 	char* name;
 };
 
 class Line;
 
+#if 0 == 1
 class Block
 {
 public:
@@ -90,6 +172,7 @@ public:
 
 	bool haserrors;
 };
+#endif
 
 
 // instruction
@@ -141,6 +224,8 @@ public:
 	}
 	*/
 
+	static Operator* newBlock(char* name, int leftarg, int rightarg, Grammar* localgrammar = NULL, Grammar* indentgrammar = NULL);
+
 	static Operator* get(optabentry* optab, char* name);
 
 	bool preaccepts(const std::vector<Operand*>* vstack, tokentype prevtokentype) const;
@@ -160,6 +245,9 @@ public:
 	TokenDesc righttypes;
 
 	Grammar* localgrammar;
+
+	Grammar* indentgrammar;
+	BlockDef* blockdef;
 
 	bool push;
 
@@ -216,12 +304,23 @@ extern Grammar* grammar;
 class Line
 {
 public:
-	Line() {}
+	Line();
+
+	void addchild(Line* child);
 
 	Operand* operand;
-	unsigned int indent;
-	unsigned int indentdepth;
+	int indent;
+	int indentdepth;
+
+	//BlockDef* blockdef;
+
 	Line* parent;
+
+	std::vector<Line*> children;
+
+	bool haserrors;
+
+	void print(unsigned int depth = 0);
 };
 
 
@@ -251,6 +350,9 @@ public:
 	//virtual ??? eval();
 
 	virtual bool matches(const TokenDesc& spec) const { return true; }
+
+	virtual Grammar* getindentgrammar() const { return NULL; };
+	virtual BlockDef* getblockdef() const { return NULL; };
 
 	virtual void print() const = 0;
 protected:
@@ -291,6 +393,9 @@ public:
 	std::vector<Operand*> operands;
 	Operator* op;
 
+	virtual Grammar* getindentgrammar() const;
+	virtual BlockDef* getblockdef() const;
+
 	virtual void print() const;
 protected:
 	virtual void print_list() const;
@@ -308,14 +413,12 @@ public:
 		UNKNOWN,
 		LABEL,
 		OPCODE,
-		BLOCK,
 	};
 
 	Symbol(char* _name) : type(Symbol::UNKNOWN), name(_name), defined(0) {}
 	union
 	{
 		Opcode* op;
-		BlockDef* blockdef;
 	} data;
 	char* name;
 	symboltype type;

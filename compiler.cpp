@@ -33,7 +33,7 @@ void compile_file(char* path)
 		sused += n_read;
 
 #if COMPILER_DEBUG >= 3
-		printf("read %d, used %d, total %d\n", n_read, sused, slen);
+		printf("read %ld, used %ld, total %ld\n", n_read, sused, slen);
 #endif
 
 		// If changed in the future, make sure there's still room for
@@ -42,7 +42,7 @@ void compile_file(char* path)
 		{
 			s = (char*)realloc(s, slen *= 2);
 #if COMPILER_DEBUG >= 3
-			printf("realloc to %d\n", slen);
+			printf("realloc to %ld\n", slen);
 #endif
 		}
 	} while (n_read);
@@ -67,10 +67,10 @@ void compile_file(char* path)
 #if COMPILER_DEBUG >= 2
 	printf("parse\n");
 #endif
-	std::vector<Block*>* blocks = NULL;
+	Line* lines = NULL;
 	try
 	{
-		blocks = parser(s);
+		lines = parser(s);
 	}
 	catch (CompilerError* err)
 	{
@@ -81,12 +81,12 @@ void compile_file(char* path)
 		printf("Error: %s\n", err);
 	}
 
-	if (blocks == NULL)
+	if (lines == NULL)
 	{
 		return;
 	}
 #if COMPILER_DEBUG >= 2
-	printf("%ld blocks\n", blocks->size());
+	printf("%ld blocks\n", lines->children.size());
 #endif
 
 	free(s);
@@ -94,32 +94,14 @@ void compile_file(char* path)
 #if COMPILER_DUMP_AST
 	printf("AST:\n");
 
-	for (std::vector<Block*>::iterator it = blocks->begin(); it != blocks->end(); ++it)
-	{
-		Block* currblock = *it;
-		printf("\nblock \"%s\"", currblock->def->name);
-		if (currblock->haserrors)
-		{
-			printf(" - has errors");
-		}
-		printf("\n");
-		std::vector<Line*>& lines = currblock->lines;
-		for (std::vector<Line*>::iterator it2 = lines.begin(); it2 != lines.end(); ++it2)
-		{
-			Line* l = *it2;
-			printf("%d ", l->indentdepth);
-			l->operand->print();
-			printf("\n");
-
-		}
-	}
+	lines->print();
 #endif
 
 	//classify_symbols(blocks);
-	
+
 	// macro expansion
 	// TODO
-	
+
 
 
 }

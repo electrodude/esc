@@ -75,7 +75,7 @@ void printstacks(void)
 	printf("\n");
 }
 
-static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
+static Operator* fold2(OperatorSet* nextopset, tokentype prevtokentype)
 {
 	Operator* nextop = NULL;
 	if (nextopset != NULL)
@@ -220,7 +220,7 @@ static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
 			if (oldgrammar != topop->localgrammar)
 			{
 				printf("Mismatched grammar pop! %p, %p, %p\n", oldgrammar, topop->localgrammar, nextop != NULL ? nextop->localgrammar : NULL);
-				exit(1);
+				throw "mismatched grammar pop";
 			}
 		}
 
@@ -294,7 +294,7 @@ folded:
 		}
 		printf("\n");
 
-		exit(1);
+		throw "unmatched right bracket";
 	}
 
 folddone:
@@ -313,12 +313,28 @@ folddone:
 	return nextop;
 }
 
+static Operator* fold(OperatorSet* nextopset, tokentype prevtokentype)
+{
+	Operator* retval = NULL;
+
+	try
+	{
+		retval = fold2(nextopset, prevtokentype);
+	}
+	catch (char const* err)
+	{
+
+	}
+
+	return retval;
+}
+
 static void push_null_operator(tokentype prevtoken)
 {
 #if PARSERDEBUG >= 3
 	printf("push_null_operator\n");
 #endif
-	fold(grammar->operators[0].curr, prevtoken);
+	//fold(grammar->operators[0].curr, prevtoken);
 }
 
 static unsigned int lineno = 0;
@@ -389,13 +405,13 @@ end:
 
 static char islabelchar[256];
 
-std::vector<Block*>* parser(char* p)
+Line* parser(char* p)
 {
 	char* ts = p;
 
 	optabentry* currop;
 
-	tokentype expectnexttoken = SYMBOL;
+	tokentype expectnexttoken = OPERATOR;
 
 	tokentype prevtoken = OPERATOR;
 
@@ -409,101 +425,34 @@ std::vector<Block*>* parser(char* p)
 	char* lastgloballabel = "!begin";
 
 
-	BlockDef* currblockdef = Symbol::get("con")->data.blockdef;
 
-
-#if PARSERDEBUG >= 3
-	printf("bodygrammar\n");
-#endif
-	grammar = currblockdef->bodygrammar; // should this be headgrammar instead?
-
-
-	std::vector<Block*>* blocks = new std::vector<Block*>();
-
-	std::vector<Line*>* lines;
-
-	Block* currblock = new Block(blocks, currblockdef, &lines);
-
-	Line* currline = new Line();
-	Line* prevline = NULL;
-
-	unsigned int indent = 0;
+	//std::vector<Block*>* blocks = new std::vector<Block*>();
 
 	std::vector<Line*> indentstack;
 
-	goto line;
+	//Block* currblock = new Block(blocks, currblockdef, &lines);
 
-newline:
-	fold(NULL, prevtoken);
-#if PARSERDEBUG >= 3
-	printf("\\n\n");
-#endif
 
-	if (!vstack->empty())
-	{
-		currline->operand = vstack->back();vstack->pop_back();
+	// make implicit outer negatively indented all-enclosing CON block
+	Line* currline = new Line();
+	currline->indent = -1;
+	currline->indentdepth = -1;
 
-		if (grammar->hasindent)
-		{
-			if (prevline != NULL && indent > prevline->indent)
-			{
-#if INDENTDEBUG
-				printf("indent push: %d %d\n", prevline->indentdepth, prevline->indent);
-#endif
-				indentstack.push_back(prevline);
-			}
+	Operator* conop = optabentry::get_if_exist(grammar->operators, "con")->preselectop(NULL, OPERATOR);
+	//BlockDef* currblockdef = conop->blockdef;
+	grammar = conop->indentgrammar;
+	currline->operand = new OperandBinop(conop, NULL, NULL);
 
-			while (!indentstack.empty() && indentstack.back()->indent >= indent)
-			{
-				Line* oldindentparent = indentstack.back();indentstack.pop_back();
-#if INDENTDEBUG
-				printf("indent pop: %d %d\n", oldindentparent->indentdepth, oldindentparent->indent);
-#endif
-			}
 
-			currline->indent = indent;
-			currline->parent = indentstack.back();
-			currline->indentdepth = indentstack.empty() == false ? indentstack.back()->indentdepth+1 : 0;
-#if INDENTDEBUG
-			printf("%d %d ", currline->indentdepth, currline->indent);
-			// no newline, continued at currline->operand->print()
-#endif
-		}
-		else
-		{
-			currline->indent = 0;
-			currline->parent = NULL;
-			currline->indentdepth = 0;
-		}
+	indentstack.push_back(currline);
 
-#if PARSERDEBUG
-		currline->operand->print();
-		printf("\n");
-#endif
 
-		lines->push_back(currline);
 
-		prevline = currline;
-		currline = new Line();
-	}
+	int indent = 0;
 
-	lineno++;
-	linestart = p;
+	Line* prevline = currline;
 
-#if PARSERDEBUG >= 3
-	printf("Line %d\n", lineno);
-#endif
-
-#if PARSERDEBUG >= 3
-	printf("bodygrammar\n");
-#endif
-	grammar = currblockdef->bodygrammar;
-
-	expectnexttoken = SYMBOL;
-
-	prevtoken = OPERATOR;
-
-	indent = 0;
+	currline = new Line();
 
 	goto line;
 
@@ -520,13 +469,55 @@ line:
 		case '\r': if (p[1] == '\n') p++;
 		case '\n': indent = 0; lineno++; linestart=p+1; p++;
 #if PARSERDEBUG >= 3
+		           printf("Line %d\n", lineno);
+#endif
+			   /*
+#if PARSERDEBUG >= 3
 		           printf("bodygrammar\n");
 #endif
 		           grammar = currblockdef->bodygrammar;
+			   */
 		           goto line;
 
 		case ' ' : indent++;         p++; goto line;
 		case '\t': indent+=tabwidth; p++; goto line;
+	}
+
+	// if we reach this point, then this line has actual content
+
+	if (1)
+	{
+#if INDENTDEBUG
+		printf("indent: %d\n", indent);
+#endif
+		currline->indent = indent;
+
+		int parent_is_block_offset = (indentstack.back()->indent <= 0 && indentstack.back()->operand->getblockdef() != NULL) ? 1 : 0;
+		//int parent_is_block_offset = 0; // disable for now; this is a can of worms
+
+#if INDENTDEBUG
+		printf("maybe indent pop: %d && %d >= %d + %d\n", !indentstack.empty(), indentstack.back()->indent, indent, parent_is_block_offset);
+#endif
+		// while current line is less indented than current block
+		//  If current block is a block header, then don't pop if indentations are equal
+		while (!indentstack.empty() && indentstack.back()->indent >= indent + parent_is_block_offset)
+		{
+			Line* oldindentparent = indentstack.back();indentstack.pop_back();
+#if INDENTDEBUG
+			printf("indent pop: %d %d\n", oldindentparent->indentdepth, oldindentparent->indent);
+#endif
+
+			grammar = indentstack.back()->operand->getindentgrammar();
+
+#if INDENTDEBUG
+			printf("maybe indent pop: %d && %d >= %d + %d\n", !indentstack.empty(), indentstack.back()->indent, indent, parent_is_block_offset);
+#endif
+		}
+
+		if (indentstack.empty())
+		{
+			throw "empty indentation stack";
+		}
 	}
 
 	goto expr_entry;
@@ -705,7 +696,10 @@ expr:
 
 				if (nextop == NULL)
 				{
-					throw "no candidates";
+					printf("Error: no candidates\n");
+					//return indentstack.front();
+					//throw "no candidates";
+					goto error;
 				}
 
 				if (nextop->leftarg && !nextop->rightarg)
@@ -754,41 +748,6 @@ expr:
 						//goto error;
 					}
 				}
-
-				if (sym->type == Symbol::BLOCK)
-				{
-#if PARSERDEBUG
-					printf("\nBlock \"%s\"\n", s);
-#endif
-
-					currblockdef = sym->data.blockdef;
-
-					new Block(blocks, currblockdef, &lines);
-
-#if PARSERDEBUG >= 3
-					printf("headgrammar\n");
-#endif
-					grammar = currblockdef->headgrammar;
-
-					indentstack.clear();
-
-
-					expectnexttoken = SYMBOL;
-
-					prevtoken = OPERATOR;
-
-					goto line;
-				}
-			}
-			else
-			{
-				if (sym->type == Symbol::BLOCK)
-				{
-					printf("Error: block name not first token on line!\n");
-
-					currblock->haserrors = true;
-					goto error;
-				}
 			}
 
 			if (expectnexttoken == OPERATOR)
@@ -834,7 +793,7 @@ expr:
 
 			free(s);
 
-			exit(1);
+			goto error;
 		}
 	}
 
@@ -1075,7 +1034,7 @@ num_done:
 	goto expr;
 
 here_or_hex:
-#if PARSERDEBUG >= 3
+#if PARSERDEBUG >= 4
 	printf("here or hex: '%c'\n", *p);
 #endif
 	ts = p;
@@ -1086,34 +1045,132 @@ here_or_hex:
 	goto expr;
 
 
+newline:
+	fold(NULL, prevtoken);
+#if PARSERDEBUG >= 3
+	printf("\\n\n");
+#endif
+
+	if (!vstack->empty())
+	{
+		// If we get here, we must have gone through line at least once, so currline can't be NULL.
+		currline->operand = vstack->back();vstack->pop_back();
+
+#if PARSERDEBUG
+		currline->operand->print();
+		printf("\n");
+#endif
+
+		int parent_is_block_offset = (indentstack.back()->indent <= 0 && indentstack.back()->operand->getblockdef() != NULL) ? 1 : 0;
+
+		if (currline->operand->getindentgrammar() != NULL)
+		{
+#if INDENTDEBUG
+			if (currline->operand->getblockdef() != NULL)
+			{
+				printf("maybe indent pop 2: %d == %d\n", indent, indentstack.back()->indent);
+			}
+#endif
+
+			if (parent_is_block_offset && indent == indentstack.back()->indent)
+			{
+				Line* oldindentparent = indentstack.back();indentstack.pop_back();
+#if INDENTDEBUG
+				printf("indent pop 2: %d %d\n", oldindentparent->indentdepth, oldindentparent->indent);
+#endif
+
+				grammar = indentstack.back()->operand->getindentgrammar();
+			}
+
+
+			indentstack.back()->addchild(currline);
+
+#if INDENTDEBUG
+			printf("maybe indent push: %d + %d > %d\n", currline->indent, parent_is_block_offset, indentstack.back()->indent);
+#endif
+
+			//if (currline->indent + parent_is_block_offset > indentstack.back()->indent)
+			if (1)
+			{
+				grammar = currline->operand->getindentgrammar();
+#if INDENTDEBUG
+				printf("indent push: %d %d ", indentstack.back()->indentdepth, indentstack.back()->indent);
+				currline->operand->print();
+				printf("\n");
+#endif
+
+				if (currline->operand == NULL)
+				{
+					throw "push empty line";
+				}
+
+				indentstack.push_back(currline);
+			}
+		}
+		else
+		{
+			indentstack.back()->addchild(currline);
+		}
+
+#if INDENTDEBUG
+		//printf("%d %d\n", currline->indentdepth, currline->indent);
+#endif
+
+		prevline = currline;
+
+		currline = new Line();
+		currline->indent = indent;
+	}
+
+	lineno++;
+	linestart = p;
+
+#if PARSERDEBUG >= 3
+	printf("Line %d\n", lineno);
+#endif
+
+	expectnexttoken = OPERATOR;
+
+	prevtoken = OPERATOR;
+
+	indent = 0;
+
+	goto line;
+
 
 error:
-	currblock->haserrors = true;
+	// possible bug: is it possible to get here when currline == NULL?
+	//  maybe on an invalid comment before the first line of actual code?
+	currline->haserrors = true;
 
 	printf("Parse error at %d:%ld: '%c' (%02X)\n", lineno, p-linestart, *p, *p);
 #if PARSERDEBUG
 	printstacks();
 #endif
 
-	return NULL;
+	//while (*p && *p != '\n' && *p != '\r') p++;
 
-#if 0
+	//return indentstack.front();
+
+#if 1
 	while (*p != 0 && *p != '\n' && *p != '\r') p++;
 
 	while (!vstack->empty())
 	{
 		Operand* o = vstack->back();vstack->pop_back();
-		printf("dropping Operand ");
+		printf("dropping operand ");
 		o->print();
 		printf("\n");
 	}
 
 	while (!ostack->empty())
 	{
-		operator* o = ostack->back();ostack->pop_back();
+		OperatorSet* o = ostack->back();ostack->pop_back();
 		if (o != NULL)
 		{
-			printf("dropping operator '%s'\n", o->name);
+			printf("dropping operator ");
+			o->print();
+			printf("\n");
 		}
 		else
 		{
@@ -1123,10 +1180,12 @@ error:
 
 	printf("continuing on next line\n\n");
 
-	goto line;
+	//goto line;
 #endif
 
-	return blocks;
+	goto newline;
+
+	return indentstack[0];
 
 
 end:
@@ -1134,7 +1193,7 @@ end:
 	printf("EOF\n\n");
 #endif
 
-	return blocks;
+	return indentstack[0];
 }
 
 

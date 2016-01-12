@@ -10,4 +10,4 @@ extern int tabwidth;
 
 void parser_init(void);
 
-std::vector<Block*>* parser(char* p);
+Line* parser(char* p);

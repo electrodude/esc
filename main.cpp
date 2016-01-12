@@ -41,6 +41,7 @@ static void usage(void)
 "         [ -I<path> ]            add search path\n"
 "         [ -L<path> ]            add search path\n"
 "         [ -O<flags> ]           enable optimizer\n"
+/*
 #if defined(unix) || defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))
 "         [ -g<extension.so> ]    load extension\n"
 #else
@@ -50,6 +51,7 @@ static void usage(void)
 "         [ -g<extension> ]       load extension\n"
 # endif
 #endif
+*/
 "           <file.spin>           input file\n"
 ,
 	"0.0.1");
@@ -147,6 +149,7 @@ int main(int argc, char** argv)
 #if OPTDEBUG
 				printf("grammar: %s\n", optarg);
 #endif
+				printf("NYI: -g<extension>\n");
 				break;
 			}
 

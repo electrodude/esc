@@ -21,84 +21,6 @@ std::vector<BlockDef*> blockdefs;
 std::set<Grammar*> blockgrammars;
 
 
-template<class T> chartree<T>* chartree<T>::create(void)
-{
-	//return calloc(256, sizeof(symtabentry));
-	return new chartree<T>[256]();
-}
-
-template<class T> chartree<T>* chartree<T>::clone(chartree<T>* optab)
-{
-	if (optab == NULL)
-	{
-		return NULL;
-	}
-
-	chartree<T>* optab2 = chartree<T>::create();
-
-	optab2[0].curr = T::chartree_clone(optab[0].curr);
-
-	for (int i=1; i < 256; i++)
-	{
-		optab2[i].next = chartree<T>::clone(optab[i].next);
-	}
-
-	return optab2;
-}
-
-template<class T> T* chartree<T>::get_if_exist(chartree<T>* base, char* p)
-{
-	chartree<T>* symtab = base;
-
-	while (*p != 0)
-	{
-#if LIBDEBUG >= 2
-		putchar(*p);
-#endif
-		unsigned char c = tolower(*p);
-
-		symtab = symtab[c].next;
-
-		if (symtab == NULL)
-		{
-			return NULL;
-		}
-
-		p++;
-	}
-#if LIBDEBUG >= 2
-	putchar('\n');
-#endif
-
-	return symtab[0].curr;
-}
-
-template<class T> chartree<T>* chartree<T>::get(chartree<T>* base, char* p)
-{
-	chartree<T>* symtab = base;
-
-	while (*p != 0)
-	{
-#if LIBDEBUG >= 2
-		putchar(*p);
-#endif
-		unsigned char c = tolower(*p);
-
-		chartree<T>* symtab2 = symtab[c].next;
-		if (symtab2 == NULL)
-		{
-			symtab2 = symtab[c].next = chartree<T>::create();
-		}
-		symtab = symtab2;
-		p++;
-	}
-#if LIBDEBUG >= 2
-	putchar('\n');
-#endif
-
-	return symtab;
-}
-
 Symbol* Symbol::get(symtabentry* symtab, char* p)
 {
 	symtabentry* symtab2 = symtabentry::get(symtab, p);
@@ -211,11 +133,6 @@ void Symbol::print() const
 			printf("opcode ");
 			break;
 		}
-		case Symbol::BLOCK:
-		{
-			printf("block ");
-			break;
-		}
 		default:
 		{
 			//printf("??? ");
@@ -227,6 +144,7 @@ void Symbol::print() const
 	printf(")");
 }
 
+#if 0 == 1
 Block::Block(std::vector<Block*>* blocks, BlockDef* _def, std::vector<Line*>** lines)
 	: def(_def), name(_def->name), haserrors(false)
 {
@@ -234,13 +152,20 @@ Block::Block(std::vector<Block*>* blocks, BlockDef* _def, std::vector<Line*>** l
 
 	*lines = &this->lines;
 }
+#endif
 
 static std::vector<Grammar*> grammarstack;
 
 Grammar::Grammar()
                 : symbols(symtabentry::create()), operators(optabentry::create()),
-                  haslabels(0), hasindent(0)
+                  haslabels(0), hasindent(1)
 {
+}
+
+Grammar::Grammar(Grammar* oldgrammar) : haslabels(oldgrammar->haslabels), hasindent(oldgrammar->hasindent)
+{
+	this->symbols = symtabentry::clone(oldgrammar->symbols);
+	this->operators = optabentry::clone(oldgrammar->operators);
 }
 
 Grammar::Grammar(symtabentry* symbols, optabentry* operators, int haslabels, int hasindent)
@@ -329,9 +254,11 @@ void Grammar::putblocknames()
 #if LIBDEBUG >= 2
 	printf("putblocknames\n");
 #endif
+	Grammar* oldgrammar = grammar; // globals are beautiful
+
 	for (std::set<Grammar*>::iterator it = blockgrammars.begin(); it != blockgrammars.end(); ++it)
 	{
-		Grammar* bodygrammar = *it;
+		grammar = *it;
 #if LIBDEBUG >= 2
 		printf("putblocknames: grammar %p\n", bodygrammar);
 #endif
@@ -343,17 +270,27 @@ void Grammar::putblocknames()
 			printf("putblocknames: add %s\n", blockdef->name);
 #endif
 
-			Symbol* sym = Symbol::define(bodygrammar, blockdef->name, Symbol::BLOCK);
+			Operator* op = new Operator(blockdef->name, 100, 0, blockdef->hasdesc ? 1 : 0);
 
-			sym->data.blockdef = blockdef;
+			if (blockdef->hasdesc)
+			{
+				op->localgrammar = blockdef->headgrammar;
+			}
+
+			op->indentgrammar = blockdef->bodygrammar;
+			op->blockdef = blockdef;
 		}
 	}
+
+	grammar = oldgrammar;
 }
 
 
-BlockDef::BlockDef(char* s)
+BlockDef::BlockDef(char* s, Grammar* headgrammar)
 {
-	this->headgrammar = grammar;
+	this->hasdesc = headgrammar != NULL;
+
+	this->headgrammar = headgrammar != NULL ? headgrammar : grammar;
 	this->bodygrammar = grammar;
 
 	this->name = s;
@@ -412,7 +349,7 @@ bool TokenDesc::matches(const tokentype type) const
 // Operator
 
 Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg, int _push, Grammar* _localgrammar)
-                  : name(_name), leftprecedence(_precedence), rightprecedence(_precedence), localgrammar(_localgrammar), push(_push), tree(true),
+                  : name(_name), leftprecedence(_precedence), rightprecedence(_precedence), localgrammar(_localgrammar), indentgrammar(NULL), blockdef(NULL), push(_push), tree(true),
                     leftarg(_leftarg), rightarg(_rightarg)
 {
 	optabentry* optab = optabentry::get(grammar->operators, name);
@@ -480,6 +417,15 @@ Operator::Operator(char* _name, double _precedence, int _leftarg, int _rightarg,
 	this->print();
 	printf("\n");
 #endif
+}
+
+Operator* Operator::newBlock(char* name, int leftarg, int rightarg, Grammar* localgrammar, Grammar* indentgrammar)
+{
+	Operator* op = new Operator(name, 20, leftarg, rightarg, 1, localgrammar);
+
+	op->indentgrammar = indentgrammar != NULL ? indentgrammar : grammar;
+
+	return op;
 }
 
 bool Operator::preaccepts(const std::vector<Operand*>* vstack, tokentype prevtokentype) const
@@ -600,7 +546,7 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 #if PARSERDEBUG
 			printf("Operator::accepts ");
 			this->print();
-			printf(" binary: only left operand");
+			printf(" binary: only left operand ");
 			lhs->print();
 			printf("\n");
 #endif
@@ -628,6 +574,13 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 			return false;
 		}
 
+#if PARSERDEBUG
+		printf("Operator::accepts ");
+		this->print();
+		printf(" postfix: ");
+		printf("\n");
+#endif
+
 		if (vstack->empty())
 		{
 			return false;
@@ -652,6 +605,13 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 			return false;
 		}
 
+#if PARSERDEBUG
+		printf("Operator::accepts ");
+		this->print();
+		printf(" prefix: ");
+		printf("\n");
+#endif
+
 		if (vstack->empty())
 		{
 			if (nextop == NULL || nextop->leftarg)
@@ -673,6 +633,13 @@ bool Operator::accepts(const std::vector<Operand*>* vstack, const Operator* next
 	}
 	else // nullary
 	{
+
+#if PARSERDEBUG
+		printf("Operator::accepts ");
+		this->print();
+		printf(" nullary: ");
+		printf("\n");
+#endif
 		// Nullary operators can't be used in expressions.  They're only really for things like 'else'
 		if (nextop != NULL && !nextop->leftarg) // if the next operator doesn't expect this
 		{
@@ -855,6 +822,73 @@ void OperatorSet::print() const
 	printf("(operatorset \"%s\")", this->name);
 }
 
+Line::Line() : operand(NULL), indent(0), indentdepth(0), parent(NULL), children(), haserrors(false)
+{
+
+}
+
+void Line::addchild(Line* child)
+{
+#if PARSERDEBUG
+	printf("Line::addchild ");
+	this->operand->print();
+	printf(", ");
+	child->operand->print();
+	printf("\n");
+#endif
+	if (child->parent != NULL)
+	{
+		printf("ICE: line already has parent!\n");
+		printf("Line (depth %d, %d):\n", child->indent, child->indentdepth);
+		child->print();
+		printf("New parent (depth %d, %d):\n", this->indent, this->indentdepth);
+		this->print();
+		printf("Old parent (depth %d, %d):\n", child->parent->indent, child->parent->indentdepth);
+		child->parent->print();
+		throw "Line already has parent!";
+	}
+
+	this->children.push_back(child);
+
+	child->parent = this;
+	child->indentdepth = this->indentdepth + 1;
+}
+
+void Line::print(unsigned int depth)
+{
+	if (this->haserrors)
+	{
+		printf("!");
+	}
+	else
+	{
+		printf(" ");
+	}
+
+	for (int i = 0; i < depth; i++)
+	{
+		printf("  ");
+	}
+
+	if (this->operand != NULL)
+	{
+		this->operand->print();
+	}
+	else
+	{
+		printf("NULL");
+	}
+
+	printf("\n");
+
+
+	for (std::vector<Line*>::iterator it2 = this->children.begin(); it2 != this->children.end(); ++it2)
+	{
+		Line* line = *it2;
+		line->print(depth + 1);
+	}
+}
+
 
 Symbol* label_new(char* s)
 {
@@ -1003,6 +1037,16 @@ int Operand::eval(Operand* this)
 void Operand::print_list() const
 {
 	print();
+}
+
+Grammar* OperandBinop::getindentgrammar() const
+{
+	return this->op->indentgrammar;
+}
+
+BlockDef* OperandBinop::getblockdef() const
+{
+	return this->op->blockdef;
 }
 
 void OperandBinop::print_list() const

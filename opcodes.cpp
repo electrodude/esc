@@ -114,29 +114,49 @@ Grammar* register_spin(void)
 
 	Grammar::pop();
 
+	Grammar::push(new Grammar());
+		Grammar* pubheader = grammar;
+
+		new Operator("(", -100, 1,2); // function args
+		new Operator(")",  100, 2,0);
+
+		Operator* op_pubheader_array = new Operator("[", -100, 1,3); // array size
+		new Operator("]",  100, 3,0);
+
+		op_pubheader_array->localgrammar = grammar_global;
+
+		new Operator(",",    0, 1,1);
+		new Operator(":",    1, 1,1);
+		new Operator("|",    1, 1,1);
+
+		new Operator("",     15, 1,1);
+
+	Grammar::pop();
+
 	Grammar::push();
-		BlockDef* pubblock = new BlockDef("pub");
-		BlockDef* priblock = new BlockDef("pri");
+		Grammar* pubgrammar = grammar;
+
+		BlockDef* pubblock = new BlockDef("pub", pubheader);
+		BlockDef* priblock = new BlockDef("pri", pubheader);
 
 		grammar->hasindent = 1;
 
-		new Operator("if",        20,  0,1);
-		new Operator("ifnot",     20,  0,1);
-		new Operator("elseif",    20,  0,1);
-		new Operator("elseifnot", 20,  0,1);
-		new Operator("else",      20,  0,0);
+		Operator::newBlock("if",         0,1);
+		Operator::newBlock("ifnot",      0,1);
+		Operator::newBlock("elseif",     0,1);
+		Operator::newBlock("elseifnot",  0,1);
+		Operator::newBlock("else",       0,0);
 
-		new Operator("repeat",    20,  0,1);
-		new Operator("repeat",    20,  0,0);
+		Operator::newBlock("repeat",     0,1);
+		Operator::newBlock("repeat",     0,0);
 		new Operator("from",      20,  1,1);
 		new Operator("to",        20,  1,1);
 		new Operator("step",      20,  1,1);
 		new Operator("until",     20,  0,1);
 		new Operator("while",     20,  0,1);
+
 		new Operator("next",      20,  0,0);
 		new Operator("quit",      20,  0,0);
-
-		new Operator("case",      20,  0,1);
 
 		new Operator("return",    20,  0,1);
 		new Operator("return",    20,  0,0);
@@ -144,6 +164,20 @@ Grammar* register_spin(void)
 		new Operator("abort",     20,  0,1);
 		new Operator("abort",     20,  0,0);
 
+		Grammar::push(new Grammar(grammar_global));
+			Grammar* casegrammar = grammar;
+
+			Operator* op_casecolon = new Operator(":",         20,  1,0);
+			op_casecolon->indentgrammar = pubgrammar;
+
+			Operator* op_casecolon2 = new Operator(":",         20,  1,1);
+			op_casecolon2->indentgrammar = pubgrammar;
+			op_casecolon2->localgrammar = pubgrammar;
+
+			new Operator("..",   19,1,1);
+		Grammar::pop();
+
+		Operator::newBlock("case",       0,1, NULL, casegrammar);
 
 
 		new Operator("\\" ,  -2,  0,1); // \try
@@ -194,40 +228,19 @@ Grammar* register_spin(void)
 
 		new Operator(":=",   12, 1,1);
 
-		new Operator("..",   12.5,1,1);
 		new Operator(",",    13, 1,1);
 		new Operator("",     21, 1,1);
 
 		Grammar::push();
-			new Operator(":",    14, 1,1);
+			new Operator(":",         14, 1,1);
 
 			op_funccall->localgrammar = grammar;
 		Grammar::pop();
 
-		new Operator(":",    14, 1,0);
+		Operator* op_fake_colon = new Operator(":",         20,  1,0);
+		op_fake_colon->name = "bad :";
 
 		op_arrayidx->localgrammar = grammar;
-	Grammar::pop();
-
-	Grammar::push(new Grammar());
-
-		new Operator("(", -100, 1,2); // function args
-		new Operator(")",  100, 2,0);
-
-		Operator* op_pubheader_array = new Operator("[", -100, 1,3); // array size
-		new Operator("]",  100, 3,0);
-
-		op_pubheader_array->localgrammar = grammar_global;
-
-		new Operator(",",    0, 1,1);
-		new Operator(":",    1, 1,1);
-		new Operator("|",    1, 1,1);
-
-		new Operator("",     15, 1,1);
-
-
-		pubblock->headgrammar = grammar;
-		priblock->headgrammar = grammar;
 	Grammar::pop();
 
 	Grammar::push();
